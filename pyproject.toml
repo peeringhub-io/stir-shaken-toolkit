@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stir-shaken-toolkit"
+version = "0.1.0"
+description = "Reusable ACME and STIR/SHAKEN certificate issuance toolkit"
+requires-python = ">=3.10"
+dependencies = [
+  "argcomplete>=3",
+  "cryptography>=41",
+  "PyJWT>=2.8",
+  "PyYAML>=6.0",
+  "requests>=2.31",
+]
+
+[project.scripts]
+stir-shaken-toolkit = "stir_shaken_toolkit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
