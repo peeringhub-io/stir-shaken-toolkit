@@ -101,7 +101,7 @@ stipa_password: sti-pa-password
 stipa_sp_id: 818H
 peeringhub_environment: staging
 acme_account_dir: /secure/peeringhub-account
-acme_kid: apartment-lines-staging
+acme_kid: peeringhub-kid
 shaken_output_dir: /secure/shaken-output
 shaken_subject_country: US
 shaken_subject_state: Example
