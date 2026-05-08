@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -17,7 +19,8 @@ from cryptography.x509.oid import ExtensionOID, NameOID, ObjectIdentifier
 from stir_shaken_acme.errors import ShakenValidationError
 
 TNAUTHLIST_OID = ObjectIdentifier("1.3.6.1.5.5.7.1.26")
-SHAKEN_POLICY_OID = ObjectIdentifier("2.16.840.1.114569.1.1.1")
+SHAKEN_POLICY_OID_ARC = "2.16.840.1.114569.1.1"
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -57,9 +60,10 @@ class ShakenCertificatePolicy:
     subject: ShakenSubject
     tn_auth_list_der: bytes
     expected_crl_url: str
-    critical_days: int
+    minimum_certificate_lifetime_days: int
     include_crl_distribution_points: bool = True
     require_shaken_policy: bool = True
+    accepted_shaken_policy_oids: frozenset[ObjectIdentifier] | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +193,39 @@ class ShakenCertificateManager:
     ) -> CertificateDetails:
         """Validate an issued SHAKEN certificate."""
 
+        try:
+            return self.validate_issued_certificate_policy(certificate, private_key)
+        except x509.ExtensionNotFound as exc:
+            validation_error = ShakenValidationError(
+                f"Issued certificate missing extension OID {exc.oid.dotted_string}"
+            )
+            LOGGER.error(
+                "Issued certificate validation failed: error=%s diagnostics=%s",
+                validation_error,
+                json.dumps(
+                    self.certificate_diagnostics(certificate),
+                    sort_keys=True,
+                ),
+            )
+            raise validation_error from exc
+        except ShakenValidationError as exc:
+            LOGGER.error(
+                "Issued certificate validation failed: error=%s diagnostics=%s",
+                exc,
+                json.dumps(
+                    self.certificate_diagnostics(certificate),
+                    sort_keys=True,
+                ),
+            )
+            raise
+
+    def validate_issued_certificate_policy(
+        self,
+        certificate: x509.Certificate,
+        private_key: EllipticCurvePrivateKey,
+    ) -> CertificateDetails:
+        """Validate an issued SHAKEN certificate policy."""
+
         policy = self.require_policy()
         self.require_key_match(certificate, private_key)
         public_key = certificate.public_key()
@@ -206,9 +243,9 @@ class ShakenCertificateManager:
             or now - timedelta(minutes=5) > not_after
         ):
             raise ShakenValidationError("Issued certificate is not currently valid")
-        if not_after <= now + timedelta(days=policy.critical_days):
+        if not_after <= now + timedelta(days=policy.minimum_certificate_lifetime_days):
             raise ShakenValidationError(
-                "Issued certificate expires before critical threshold"
+                "Issued certificate expires before minimum lifetime threshold"
             )
         expected_subject = policy.subject.to_x509_name()
         if certificate.subject != expected_subject:
@@ -243,12 +280,10 @@ class ShakenCertificateManager:
             policies = certificate.extensions.get_extension_for_oid(
                 ExtensionOID.CERTIFICATE_POLICIES
             ).value
-            if SHAKEN_POLICY_OID not in [
+            certificate_policy_oids = {
                 policy_item.policy_identifier for policy_item in policies
-            ]:
-                raise ShakenValidationError(
-                    "Issued certificate missing SHAKEN policy OID"
-                )
+            }
+            self.require_shaken_policy_oid(certificate_policy_oids, policy)
         fingerprint = certificate.fingerprint(hashes.SHA256()).hex().upper()
         return CertificateDetails(
             serial_number=str(certificate.serial_number),
@@ -296,6 +331,97 @@ class ShakenCertificateManager:
         raise ShakenValidationError(
             "Issued certificate missing expected STI-PA CRL URL"
         )
+
+    def certificate_diagnostics(
+        self, certificate: x509.Certificate
+    ) -> dict[str, object]:
+        """Return JSON-safe certificate diagnostics for validation failures.
+
+        :param certificate: Certificate being validated.
+        :type certificate: x509.Certificate
+        :return: Certificate diagnostics.
+        :rtype: dict[str, object]
+        """
+
+        return {
+            "extension_oids": self.extension_oids(certificate),
+            "issuer": certificate.issuer.rfc4514_string(),
+            "policy_oids": self.policy_oids(certificate),
+            "serial_number": str(certificate.serial_number),
+            "subject": certificate.subject.rfc4514_string(),
+        }
+
+    def extension_oids(self, certificate: x509.Certificate) -> list[str]:
+        """Return certificate extension OIDs.
+
+        :param certificate: Certificate to inspect.
+        :type certificate: x509.Certificate
+        :return: Extension OID strings.
+        :rtype: list[str]
+        """
+
+        return [
+            extension.oid.dotted_string for extension in certificate.extensions
+        ]
+
+    def policy_oids(self, certificate: x509.Certificate) -> list[str]:
+        """Return certificate policy OIDs if present.
+
+        :param certificate: Certificate to inspect.
+        :type certificate: x509.Certificate
+        :return: Certificate policy OID strings.
+        :rtype: list[str]
+        """
+
+        try:
+            policies = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.CERTIFICATE_POLICIES
+            ).value
+        except x509.ExtensionNotFound:
+            return []
+        return [
+            policy_item.policy_identifier.dotted_string
+            for policy_item in policies
+        ]
+
+    def require_shaken_policy_oid(
+        self,
+        certificate_policy_oids: set[ObjectIdentifier],
+        policy: ShakenCertificatePolicy,
+    ) -> None:
+        """Validate certificate policy OIDs against configured SHAKEN policy.
+
+        :param certificate_policy_oids: Certificate policy OIDs from the certificate.
+        :type certificate_policy_oids: set[ObjectIdentifier]
+        :param policy: Validation policy.
+        :type policy: ShakenCertificatePolicy
+        :return: None.
+        :rtype: None
+        """
+
+        if policy.accepted_shaken_policy_oids is not None:
+            if certificate_policy_oids.isdisjoint(policy.accepted_shaken_policy_oids):
+                raise ShakenValidationError(
+                    "Issued certificate missing accepted SHAKEN policy OID"
+                )
+            return
+        for policy_oid in certificate_policy_oids:
+            if self.is_shaken_policy_oid(policy_oid):
+                return
+        raise ShakenValidationError(
+            "Issued certificate missing STI-PA SHAKEN policy OID"
+        )
+
+    def is_shaken_policy_oid(self, policy_oid: ObjectIdentifier) -> bool:
+        """Return whether an OID is under the STI-PA SHAKEN policy arc.
+
+        :param policy_oid: Certificate policy OID.
+        :type policy_oid: ObjectIdentifier
+        :return: Whether the OID is under the SHAKEN policy arc.
+        :rtype: bool
+        """
+
+        return policy_oid.dotted_string.startswith(f"{SHAKEN_POLICY_OID_ARC}.")
 
     def require_policy(self) -> ShakenCertificatePolicy:
         """Return the configured certificate policy."""

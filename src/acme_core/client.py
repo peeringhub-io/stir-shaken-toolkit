@@ -151,6 +151,11 @@ class AcmeClient:
             self.state_path,
             self.key_manager.key_path,
         )
+        if self.state_path.exists() and not self.key_manager.key_path.exists():
+            raise AcmeClientError(
+                "ACME account state exists but account key is missing: "
+                f"{self.key_manager.key_path}"
+            )
         self.private_key = self.key_manager.load_or_create()
         self.discover_directory()
         self.fetch_nonce()
@@ -171,12 +176,14 @@ class AcmeClient:
                 state.status,
             )
             return state
-        LOGGER.debug("ACME account state missing; creating account")
+        LOGGER.debug(
+            "ACME account state cache missing; creating or recovering account"
+        )
         state = self.create_account(account_payload)
         self.account_state = state
         self.save_state(state)
         LOGGER.debug(
-            "ACME account created: account_url=%s status=%s",
+            "ACME account created or recovered: account_url=%s status=%s",
             state.account_url,
             state.status,
         )
@@ -267,11 +274,84 @@ class AcmeClient:
         if not account_url:
             raise AcmeProtocolError("ACME account creation did not return Location")
         account_object = self.decode_json_response(response)
+        if not account_object:
+            LOGGER.debug(
+                "ACME account creation response had no body; fetching account object"
+            )
+            fetched_account_object = self.account_object(account_url)
+            return self.account_state_from_object(
+                account_url, fetched_account_object, created_at=now_utc()
+            )
         LOGGER.debug(
             "ACME account creation response: location=%s status=%s",
             account_url,
             account_object.get("status", "valid"),
         )
+        return self.account_state_from_object(
+            account_url,
+            account_object,
+            created_at=now_utc(),
+        )
+
+    def account_object(self, account_url: str) -> JsonObject:
+        """Fetch an ACME account object.
+
+        :param account_url: ACME account URL.
+        :type account_url: str
+        :return: Decoded account object.
+        :rtype: JsonObject
+        """
+
+        previous_state = self.account_state
+        self.account_state = AcmeAccountState(
+            profile=self.profile.name,
+            acme_base_url=self.base_url,
+            account_url=account_url,
+            orders_url=None,
+            kid=self.key_manager.kid,
+            account_key_path=str(self.key_manager.key_path),
+            account_key_fingerprint=self.key_manager.public_key_fingerprint(
+                self.require_private_key()
+            ),
+            created_at=now_utc(),
+            last_verified_at=None,
+            status="unknown",
+        )
+        try:
+            account_object = self.post_as_get(account_url)
+        finally:
+            self.account_state = previous_state
+        if not account_object:
+            raise AcmeProtocolError(
+                "ACME account recovery did not return account details"
+            )
+        LOGGER.debug(
+            "ACME account object fetched: account_url=%s status=%s orders_url=%s",
+            account_url,
+            account_object.get("status"),
+            account_object.get("orders"),
+        )
+        return account_object
+
+    def account_state_from_object(
+        self,
+        account_url: str,
+        account_object: JsonObject,
+        created_at: str,
+    ) -> AcmeAccountState:
+        """Build account state from an ACME account object.
+
+        :param account_url: ACME account URL.
+        :type account_url: str
+        :param account_object: ACME account response object.
+        :type account_object: JsonObject
+        :param created_at: Account cache creation timestamp.
+        :type created_at: str
+        :return: Account state.
+        :rtype: AcmeAccountState
+        """
+
+        private_key = self.require_private_key()
         return AcmeAccountState(
             profile=self.profile.name,
             acme_base_url=self.base_url,
@@ -282,7 +362,7 @@ class AcmeClient:
             account_key_fingerprint=self.key_manager.public_key_fingerprint(
                 private_key
             ),
-            created_at=now_utc(),
+            created_at=created_at,
             last_verified_at=now_utc(),
             status=str(account_object.get("status", "valid")),
         )

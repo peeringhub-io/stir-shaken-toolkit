@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +36,9 @@ PEERINGHUB_STIPA_CRL_URLS = {
     "production": "https://authenticate-api.iconectiv.com/download/v1/crl",
     "staging": "https://authenticate-api-stg.iconectiv.com/download/v1/crl",
 }
+ACCOUNT_KEY_FILENAME = "account.key"
+ACCOUNT_STATE_FILENAME = "account.json"
+TOOLKIT_APP_NAME = "stir-shaken-toolkit"
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,45 @@ class PeeringhubProfile:
                 ),
             ),
         )
+
+
+@dataclass(frozen=True)
+class PeeringhubAccountPaths:
+    """Local Peeringhub ACME account storage paths."""
+
+    account_dir: Path
+    account_key_path: Path
+    account_state_path: Path
+
+    @classmethod
+    def from_account_dir(cls, account_dir: Path) -> PeeringhubAccountPaths:
+        """Build account paths from a local account directory."""
+
+        return cls(
+            account_dir=account_dir,
+            account_key_path=account_dir / ACCOUNT_KEY_FILENAME,
+            account_state_path=account_dir / ACCOUNT_STATE_FILENAME,
+        )
+
+    @classmethod
+    def default(cls, environment: str) -> PeeringhubAccountPaths:
+        """Build account paths using the platform-specific user state location."""
+
+        return cls.from_account_dir(
+            user_state_dir(TOOLKIT_APP_NAME) / "peeringhub" / environment
+        )
+
+
+def user_state_dir(app_name: str) -> Path:
+    """Return a cross-platform per-user state directory."""
+
+    if sys.platform == "win32":
+        base_dir = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData/Local")
+        return Path(base_dir) / app_name
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / app_name
+    base_dir = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
+    return Path(base_dir) / app_name
 
 
 class PeeringhubIssuer:
@@ -170,7 +214,7 @@ class PeeringhubIssuer:
             ),
             tn_auth_list_der=b"",
             expected_crl_url=profile.stipa_crl_url,
-            critical_days=1,
+            minimum_certificate_lifetime_days=1,
         )
         return cls.build(
             profile=profile,
@@ -191,10 +235,9 @@ class PeeringhubIssuer:
     def issue(
         self,
         spc: str,
-        certificate_key_path: Path,
         not_before: str | None = None,
         not_after: str | None = None,
     ) -> StirShakenIssuanceResult:
         """Issue a Peeringhub STIR/SHAKEN certificate."""
 
-        return self.issuer.issue(spc, certificate_key_path, not_before, not_after)
+        return self.issuer.issue(spc, not_before=not_before, not_after=not_after)
