@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from stir_shaken_acme.errors import ShakenValidationError
+from .errors import ShakenValidationError
 
 SPC_PATTERN = re.compile(r"^[A-Z0-9]{4}$")
 TnAuthEncoding = Literal["base64", "base64url"]

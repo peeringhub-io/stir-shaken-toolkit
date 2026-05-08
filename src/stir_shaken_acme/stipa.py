@@ -14,7 +14,7 @@ import requests
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
-from stir_shaken_acme.errors import StipaError
+from .errors import StipaError
 
 LOGGER = logging.getLogger(__name__)
 SENSITIVE_KEYS = {
@@ -106,8 +106,8 @@ class StipaClient:
     """Client for STI-PA login, SPC token request, and token validation."""
 
     def __init__(self, settings: StipaSettings) -> None:
-        self.settings = settings
-        self.session = requests.Session()
+        self.settings: StipaSettings = settings
+        self.session: requests.Session = requests.Session()
 
     def request_validated_token(
         self, tn_auth_list_value: str, fingerprint: str
@@ -203,9 +203,10 @@ class StipaClient:
             decoded = response.json() if response.content else {}
         except json.JSONDecodeError as exc:
             if response.status_code >= 400:
+                diagnostic_response = response.text[:MAX_DIAGNOSTIC_JSON_LENGTH]
                 raise StipaError(
                     f"{context} failed: http_status={response.status_code} "
-                    f"url={url} response={response.text[:MAX_DIAGNOSTIC_JSON_LENGTH]}"
+                    + f"url={url} response={diagnostic_response}"
                 ) from exc
             raise StipaError(
                 f"{context} returned invalid JSON for {url}: {exc}"
@@ -384,7 +385,7 @@ class StipaClient:
             )
             LOGGER.debug(
                 "STI-PA download response: url=%s http_status=%s content_type=%s "
-                "bytes=%s",
+                + "bytes=%s",
                 url,
                 response.status_code,
                 response.headers.get("Content-Type", ""),
@@ -409,7 +410,7 @@ class StipaClient:
             )
             LOGGER.debug(
                 "STI-PA download response: url=%s http_status=%s content_type=%s "
-                "bytes=%s",
+                + "bytes=%s",
                 url,
                 response.status_code,
                 response.headers.get("Content-Type", ""),

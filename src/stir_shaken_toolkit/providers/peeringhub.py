@@ -130,11 +130,11 @@ class PeeringhubIssuer:
         acme_poll_interval_seconds: int = 5,
         acme_poll_timeout_seconds: int = 180,
     ) -> None:
-        self.profile = profile
-        self.acme_client = acme_client
-        self.stipa_client = stipa_client
-        self.certificate_manager = certificate_manager
-        self.issuer = StirShakenIssuer(
+        self.profile: PeeringhubProfile = profile
+        self.acme_client: AcmeClient = acme_client
+        self.stipa_client: StipaClient = stipa_client
+        self.certificate_manager: ShakenCertificateManager = certificate_manager
+        self.issuer: StirShakenIssuer = StirShakenIssuer(
             acme_client=acme_client,
             stipa_client=stipa_client,
             certificate_manager=certificate_manager,

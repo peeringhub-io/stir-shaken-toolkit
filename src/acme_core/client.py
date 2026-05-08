@@ -13,9 +13,9 @@ from typing import Any, Literal
 import requests
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
-from acme_core import base64url
-from acme_core.errors import AcmeBadNonceError, AcmeClientError, AcmeProtocolError
-from acme_core.keys import AcmeKeyManager
+from .base64url import encode as b64url_encode
+from .errors import AcmeBadNonceError, AcmeClientError, AcmeProtocolError
+from .keys import AcmeKeyManager
 
 ACME_BAD_NONCE_TYPE = "urn:ietf:params:acme:error:badNonce"
 JsonObject = dict[str, Any]
@@ -120,13 +120,13 @@ class AcmeClient:
         timeout_seconds: int = 30,
         bad_nonce_retries: int = 2,
     ) -> None:
-        self.base_url = base_url
-        self.key_manager = key_manager
-        self.state_path = state_path
-        self.profile = profile or AcmeProfile()
-        self.timeout_seconds = timeout_seconds
-        self.bad_nonce_retries = bad_nonce_retries
-        self.session = requests.Session()
+        self.base_url: str = base_url
+        self.key_manager: AcmeKeyManager = key_manager
+        self.state_path: Path = state_path
+        self.profile: AcmeProfile = profile or AcmeProfile()
+        self.timeout_seconds: int = timeout_seconds
+        self.bad_nonce_retries: int = bad_nonce_retries
+        self.session: requests.Session = requests.Session()
         self.directory: dict[str, str] = {}
         self.nonce: str | None = None
         self.account_state: AcmeAccountState | None = None
@@ -145,7 +145,7 @@ class AcmeClient:
 
         LOGGER.debug(
             "ACME account preparation started: base_url=%s profile=%s "
-            "state_path=%s key_path=%s",
+            + "state_path=%s key_path=%s",
             self.base_url,
             self.profile.name,
             self.state_path,
@@ -154,7 +154,7 @@ class AcmeClient:
         if self.state_path.exists() and not self.key_manager.key_path.exists():
             raise AcmeClientError(
                 "ACME account state exists but account key is missing: "
-                f"{self.key_manager.key_path}"
+                + f"{self.key_manager.key_path}"
             )
         self.private_key = self.key_manager.load_or_create()
         self.discover_directory()
@@ -176,9 +176,7 @@ class AcmeClient:
                 state.status,
             )
             return state
-        LOGGER.debug(
-            "ACME account state cache missing; creating or recovering account"
-        )
+        LOGGER.debug("ACME account state cache missing; creating or recovering account")
         state = self.create_account(account_payload)
         self.account_state = state
         self.save_state(state)
@@ -459,7 +457,7 @@ class AcmeClient:
             len(csr_der),
         )
         return self.decode_json_response(
-            self.signed_post_raw(finalize_url, {"csr": base64url.encode(csr_der)})
+            self.signed_post_raw(finalize_url, {"csr": b64url_encode(csr_der)})
         )
 
     def download_certificate(self, certificate_url: str) -> str:
@@ -556,7 +554,7 @@ class AcmeClient:
             self.nonce = replay_nonce
         LOGGER.debug(
             "ACME signed POST response: url=%s http_status=%s content_type=%s "
-            "location=%s replay_nonce_present=%s",
+            + "location=%s replay_nonce_present=%s",
             url,
             response.status_code,
             response.headers.get("Content-Type", ""),

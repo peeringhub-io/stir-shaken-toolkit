@@ -15,6 +15,14 @@ dependencies = [
   "requests>=2.31",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8",
+    "basedpyright",
+]
+
 [project.scripts]
 stir-shaken-toolkit = "stir_shaken_toolkit.cli:main"
 

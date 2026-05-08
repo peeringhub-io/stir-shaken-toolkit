@@ -12,8 +12,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
-from acme_core import base64url
-from acme_core.errors import AcmeClientError
+from .errors import AcmeClientError
+from .base64url import encode as b64url_encode
 
 KEY_MODE = 0o600
 EmptyPayloadSigningMode = Literal["standard", "protected_only"]
@@ -23,8 +23,8 @@ class AcmeKeyManager:
     """Manage an ACME account key and related derived values."""
 
     def __init__(self, key_path: Path, kid: str) -> None:
-        self.key_path = key_path
-        self.kid = kid
+        self.key_path: Path = key_path
+        self.kid: str = kid
 
     def load_or_create(self) -> EllipticCurvePrivateKey:
         """Load the account key, creating one if it is absent."""
@@ -67,8 +67,8 @@ class AcmeKeyManager:
         jwk = {
             "kty": "EC",
             "crv": "P-256",
-            "x": base64url.encode(public_numbers.x.to_bytes(32, "big")),
-            "y": base64url.encode(public_numbers.y.to_bytes(32, "big")),
+            "x": b64url_encode(public_numbers.x.to_bytes(32, "big")),
+            "y": b64url_encode(public_numbers.y.to_bytes(32, "big")),
         }
         if include_kid:
             jwk["kid"] = self.kid
@@ -96,13 +96,13 @@ class AcmeKeyManager:
         protected_bytes = json.dumps(
             protected, separators=(",", ":"), sort_keys=True
         ).encode("utf-8")
-        protected_encoded = base64url.encode(protected_bytes)
+        protected_encoded = b64url_encode(protected_bytes)
         payload_encoded = ""
         if payload is not None:
             payload_bytes = json.dumps(
                 payload, separators=(",", ":"), sort_keys=True
             ).encode("utf-8")
-            payload_encoded = base64url.encode(payload_bytes)
+            payload_encoded = b64url_encode(payload_bytes)
         signing_input = self.signing_input(
             protected_encoded, payload_encoded, payload, empty_payload_signing_mode
         )
@@ -112,7 +112,7 @@ class AcmeKeyManager:
         return {
             "protected": protected_encoded,
             "payload": payload_encoded,
-            "signature": base64url.encode(signature),
+            "signature": b64url_encode(signature),
         }
 
     def signing_input(

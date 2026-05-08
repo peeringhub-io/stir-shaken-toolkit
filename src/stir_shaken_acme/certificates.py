@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.x509.oid import ExtensionOID, NameOID, ObjectIdentifier
 
-from stir_shaken_acme.errors import ShakenValidationError
+from .errors import ShakenValidationError
 
 TNAUTHLIST_OID = ObjectIdentifier("1.3.6.1.5.5.7.1.26")
 SHAKEN_POLICY_OID_ARC = "2.16.840.1.114569.1.1"
@@ -94,7 +94,7 @@ class ShakenCertificateManager:
     """Manage SHAKEN certificate keys, CSRs, and validation."""
 
     def __init__(self, policy: ShakenCertificatePolicy | None = None) -> None:
-        self.policy = policy
+        self.policy: ShakenCertificatePolicy | None = policy
 
     def generate_certificate_key(self, path: Path) -> EllipticCurvePrivateKey:
         """Generate a per-certificate EC P-256 key."""
@@ -275,11 +275,19 @@ class ShakenCertificateManager:
         crl_distribution_points = certificate.extensions.get_extension_for_oid(
             ExtensionOID.CRL_DISTRIBUTION_POINTS
         ).value
+        if not isinstance(crl_distribution_points, x509.CRLDistributionPoints):
+            raise ShakenValidationError(
+                "Issued certificate CRL Distribution Points extension is " + "invalid"
+            )
         self.require_expected_crl(crl_distribution_points, policy.expected_crl_url)
         if policy.require_shaken_policy:
             policies = certificate.extensions.get_extension_for_oid(
                 ExtensionOID.CERTIFICATE_POLICIES
             ).value
+            if not isinstance(policies, x509.CertificatePolicies):
+                raise ShakenValidationError(
+                    "Issued certificate Certificate Policies extension is " + "invalid"
+                )
             certificate_policy_oids = {
                 policy_item.policy_identifier for policy_item in policies
             }
@@ -360,9 +368,7 @@ class ShakenCertificateManager:
         :rtype: list[str]
         """
 
-        return [
-            extension.oid.dotted_string for extension in certificate.extensions
-        ]
+        return [extension.oid.dotted_string for extension in certificate.extensions]
 
     def policy_oids(self, certificate: x509.Certificate) -> list[str]:
         """Return certificate policy OIDs if present.
@@ -379,10 +385,9 @@ class ShakenCertificateManager:
             ).value
         except x509.ExtensionNotFound:
             return []
-        return [
-            policy_item.policy_identifier.dotted_string
-            for policy_item in policies
-        ]
+        if not isinstance(policies, x509.CertificatePolicies):
+            return []
+        return [policy_item.policy_identifier.dotted_string for policy_item in policies]
 
     def require_shaken_policy_oid(
         self,

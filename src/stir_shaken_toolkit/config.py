@@ -15,8 +15,8 @@ class CliValueResolver:
     """Resolve CLI values from args, YAML config, environment, and defaults."""
 
     def __init__(self, config_path: Path | None = None) -> None:
-        self.config_path = config_path
-        self.config = self.load_config(config_path)
+        self.config_path: Path | None = config_path
+        self.config: dict[str, Any] = self.load_config(config_path)
 
     def value(
         self,
@@ -86,6 +86,8 @@ class CliValueResolver:
         """Resolve one integer value."""
 
         value = self.value(cli_value, config_key, env_name, default)
+        if not isinstance(value, str | int):
+            raise StirShakenError(f"Invalid integer for {config_key}: {value}")
         try:
             return int(value)
         except (TypeError, ValueError) as exc:

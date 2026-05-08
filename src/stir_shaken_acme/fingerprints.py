@@ -10,7 +10,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 
-from stir_shaken_acme.errors import ShakenValidationError
+from .errors import ShakenValidationError
 
 
 class FingerprintCalculator:

@@ -130,7 +130,7 @@ class StirShakenToolkitCli:
         if source_count != 1:
             raise StirShakenError(
                 "Use exactly one of --certificate, --csr, --private-key, "
-                "or --acme-account-key"
+                + "or --acme-account-key"
             )
         if args.certificate is not None:
             LOGGER.debug(
@@ -220,7 +220,7 @@ class StirShakenToolkitCli:
         if output_dir is not None:
             LOGGER.debug(
                 "SPC token command: writing artifacts output_dir=%s "
-                "write_token_artifacts=%s",
+                + "write_token_artifacts=%s",
                 output_dir,
                 args.write_token_artifacts,
             )
@@ -280,8 +280,8 @@ class StirShakenToolkitCli:
         acme_kid = resolver.required_string(args.kid, "acme_kid", "ACME_KID", "--kid")
         LOGGER.debug(
             "Peeringhub account setup command: environment=%s acme_base_url=%s "
-            "account_dir=%s account_key_path=%s account_state_path=%s "
-            "timeout_seconds=%s bad_nonce_retries=%s",
+            + "account_dir=%s account_key_path=%s account_state_path=%s "
+            + "timeout_seconds=%s bad_nonce_retries=%s",
             environment,
             acme_base_url,
             account_paths.account_dir,
@@ -334,9 +334,8 @@ class StirShakenToolkitCli:
 
         if not resolver.is_blank(args.output_dir):
             return "--output-dir"
-        if (
-            "shaken_output_dir" in resolver.config
-            and not resolver.is_blank(resolver.config["shaken_output_dir"])
+        if "shaken_output_dir" in resolver.config and not resolver.is_blank(
+            resolver.config["shaken_output_dir"]
         ):
             return "shaken_output_dir"
         if "SHAKEN_OUTPUT_DIR" in os.environ and os.environ["SHAKEN_OUTPUT_DIR"] != "":
@@ -366,13 +365,12 @@ class StirShakenToolkitCli:
         output_dir = self.issue_output_dir_from_args(args, resolver)
         output_dir_source = self.issue_output_dir_source(args, resolver)
         output_dir_source_label = (
-            "configured"
-            if output_dir_source is not None
-            else "generated default"
+            "configured" if output_dir_source is not None else "generated default"
         )
         LOGGER.debug(
             "Peeringhub issue command: environment=%s acme_base_url=%s "
-            "stipa_base_url=%s stipa_crl_url=%s output_dir=%s output_dir_source=%s",
+            + "stipa_base_url=%s stipa_crl_url=%s output_dir=%s "
+            + "output_dir_source=%s",
             profile.environment,
             profile.acme_base_url,
             profile.stipa_base_url,
@@ -394,9 +392,9 @@ class StirShakenToolkitCli:
         acme_kid = resolver.required_string(args.kid, "acme_kid", "ACME_KID", "--kid")
         LOGGER.debug(
             "Peeringhub issue command: account_dir=%s account_key_path=%s "
-            "account_state_path=%s minimum_certificate_lifetime_days=%s "
-            "acme_timeout_seconds=%s bad_nonce_retries=%s "
-            "poll_interval_seconds=%s poll_timeout_seconds=%s",
+            + "account_state_path=%s minimum_certificate_lifetime_days=%s "
+            + "acme_timeout_seconds=%s bad_nonce_retries=%s "
+            + "poll_interval_seconds=%s poll_timeout_seconds=%s",
             account_paths.account_dir,
             account_paths.account_key_path,
             account_paths.account_state_path,
@@ -516,21 +514,17 @@ class StirShakenToolkitCli:
         """
 
         parser = argparse.ArgumentParser(
-            description=dedent(
-                """\
+            description=dedent("""\
                 STIR/SHAKEN toolkit for local CSR/fingerprint utilities,
                 STI-PA SPC token requests, and Peeringhub ACME issuance.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=dedent(
-                """\
+            epilog=dedent("""\
                 Values resolve in this order: CLI args, --config YAML,
                 prefixed environment variables, then built-in defaults.
                 Subcommand options shown as optional may still be required
                 unless supplied by config or environment.
-                """
-            ),
+                """),
         )
         parser.add_argument(
             "--debug",
@@ -561,14 +555,12 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "fingerprint",
             help="Calculate an STI-PA SHA256 fingerprint",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Calculate a local STI-PA-formatted SHA256 fingerprint from a
                 certificate, CSR, private key, or configured ACME account key.
                 The output is suitable for STI-PA ATC/SPC token requests.
                 This command is local-only.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_file_argument(
@@ -606,14 +598,12 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "spc-token",
             help="Request and validate a generic STI-PA SPC token",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Request and validate an SPC token directly from STI-PA. This is
                 provider-neutral token tooling; Peeringhub issuance obtains and
                 submits its SPC token internally. Use --fingerprint with the
                 SHA256 output from the fingerprint command.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.add_argument(
@@ -671,13 +661,11 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "validate-cert",
             help="Validate a key/certificate pair",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Validate that a local SHAKEN certificate public key matches a
                 local EC P-256 private key. This verifies that the certificate
                 belongs with the private key file. This command is local-only.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_file_argument(
@@ -702,16 +690,14 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "peeringhub-account-setup",
             help="Create or verify a Peeringhub ACME account",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Prepare or verify a Peeringhub ACME account. The toolkit keeps
                 a local ACME account directory containing account.key, which is
                 the durable account credential, and account.json, which is a
                 recoverable cache of the account URL returned by Peeringhub.
                 This command contacts Peeringhub ACME but does not create a
                 certificate order.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_peeringhub_environment_args(parser)
@@ -723,16 +709,14 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "peeringhub-issue",
             help="Issue a Peeringhub STIR/SHAKEN certificate",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Run the full Peeringhub ACME issuance workflow. This command
                 builds a CSR from the local ACME account key, requests an
                 STI-PA SPC token, submits the ACME challenge to Peeringhub, and
                 downloads the issued certificate artifacts. The local ACME
                 account key and recoverable account cache are read or created
                 under the account directory.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_peeringhub_environment_args(parser)
@@ -760,13 +744,11 @@ class StirShakenToolkitCli:
         parser = subparsers.add_parser(
             "csr",
             help="Generate a SHAKEN key and CSR",
-            description=dedent(
-                """\
+            description=dedent("""\
                 Generate a local EC P-256 SHAKEN private key and PEM CSR with
                 a TNAuthList extension. The CSR is suitable for STI-PA and
                 ACME workflows. This command is local-only.
-                """
-            ),
+                """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_subject_args(parser)
@@ -837,9 +819,7 @@ class StirShakenToolkitCli:
             ),
         )
 
-    def add_peeringhub_account_dir_arg(
-        self, parser: argparse.ArgumentParser
-    ) -> None:
+    def add_peeringhub_account_dir_arg(self, parser: argparse.ArgumentParser) -> None:
         """Add the Peeringhub local ACME account directory argument."""
 
         self.add_directory_argument(
@@ -952,7 +932,7 @@ class StirShakenToolkitCli:
             account_paths = PeeringhubAccountPaths.from_account_dir(account_dir)
         LOGGER.debug(
             "Peeringhub account paths resolved: account_dir=%s account_key_path=%s "
-            "account_state_path=%s",
+            + "account_state_path=%s",
             account_paths.account_dir,
             account_paths.account_key_path,
             account_paths.account_state_path,

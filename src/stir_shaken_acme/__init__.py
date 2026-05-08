@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from stir_shaken_acme.certificates import (
+from .certificates import (
     SHAKEN_POLICY_OID_ARC,
     TNAUTHLIST_OID,
     CertificateDetails,
@@ -10,19 +10,19 @@ from stir_shaken_acme.certificates import (
     ShakenCertificatePolicy,
     ShakenSubject,
 )
-from stir_shaken_acme.fingerprints import FingerprintCalculator
-from stir_shaken_acme.issuer import (
+from .fingerprints import FingerprintCalculator
+from .issuer import (
     IssuanceValidationError,
     StirShakenIssuanceResult,
     StirShakenIssuer,
 )
-from stir_shaken_acme.stipa import (
+from .stipa import (
     StipaClient,
     StipaSettings,
     StipaToken,
     StipaTokenPackage,
 )
-from stir_shaken_acme.tnauth import TnAuthList
+from .tnauth import TnAuthList
 
 __all__ = [
     "CertificateDetails",

@@ -11,10 +11,10 @@ from typing import Any
 from acme_core import AcmeAccountState, AcmeClient
 from acme_core.client import sanitize_json
 
-from stir_shaken_acme.certificates import CertificateDetails, ShakenCertificateManager
-from stir_shaken_acme.errors import ShakenValidationError, StirShakenError
-from stir_shaken_acme.stipa import StipaClient, StipaToken
-from stir_shaken_acme.tnauth import TnAuthList
+from .certificates import CertificateDetails, ShakenCertificateManager
+from .errors import ShakenValidationError, StirShakenError
+from .stipa import StipaClient, StipaToken
+from .tnauth import TnAuthList
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,9 +49,7 @@ class StirShakenIssuanceResult:
 class IssuanceValidationError(ShakenValidationError):
     """Raised when issuance reaches certificate download but validation fails."""
 
-    def __init__(
-        self, message: str, partial_result: StirShakenIssuanceResult
-    ) -> None:
+    def __init__(self, message: str, partial_result: StirShakenIssuanceResult) -> None:
         """Initialize the validation error with downloadable artifacts.
 
         :param message: Validation failure message.
@@ -63,7 +61,7 @@ class IssuanceValidationError(ShakenValidationError):
         """
 
         super().__init__(message)
-        self.partial_result = partial_result
+        self.partial_result: StirShakenIssuanceResult = partial_result
 
 
 class StirShakenIssuer:
@@ -78,12 +76,12 @@ class StirShakenIssuer:
         acme_poll_timeout_seconds: int = 180,
         tn_auth_list_encoding: str = "base64url",
     ) -> None:
-        self.acme_client = acme_client
-        self.stipa_client = stipa_client
-        self.certificate_manager = certificate_manager
-        self.acme_poll_interval_seconds = acme_poll_interval_seconds
-        self.acme_poll_timeout_seconds = acme_poll_timeout_seconds
-        self.tn_auth_list_encoding = tn_auth_list_encoding
+        self.acme_client: AcmeClient = acme_client
+        self.stipa_client: StipaClient = stipa_client
+        self.certificate_manager: ShakenCertificateManager = certificate_manager
+        self.acme_poll_interval_seconds: int = acme_poll_interval_seconds
+        self.acme_poll_timeout_seconds: int = acme_poll_timeout_seconds
+        self.tn_auth_list_encoding: str = tn_auth_list_encoding
 
     def issue(
         self,
@@ -273,7 +271,7 @@ class StirShakenIssuer:
             status = order.get("status")
             LOGGER.debug(
                 "ACME order poll: url=%s desired_status=%s current_status=%s "
-                "attempt=%s",
+                + "attempt=%s",
                 order_url,
                 desired_status,
                 status,
