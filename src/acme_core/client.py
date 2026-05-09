@@ -167,8 +167,13 @@ class AcmeClient:
             status = account_object.get("status", state.status)
             if status in {"deactivated", "revoked"}:
                 raise AcmeClientError(f"ACME account status is {status}")
+            state = self.account_state_from_object(
+                state.account_url,
+                account_object,
+                created_at=state.created_at,
+            )
             state.status = str(status)
-            state.last_verified_at = now_utc()
+            self.account_state = state
             self.save_state(state)
             LOGGER.debug(
                 "ACME account verified: account_url=%s status=%s",
