@@ -27,7 +27,7 @@ python -m pip install -e .
 
 Most operators using Peeringhub need four groups of values:
 
-- STI-PA credentials: `STIPA_USER_ID`, `STIPA_PASSWORD`, `STIPA_SP_ID`.
+- STI-PA credentials: `STIPA_USER_ID`, `STIPA_PASSWORD`, and `STIPA_SP_ID`.
 - The service provider code: `STIPA_SPC`.
 - The Peeringhub ACME key identifier, when Peeringhub provides one:
   `ACME_KID`.

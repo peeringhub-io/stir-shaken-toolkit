@@ -617,8 +617,8 @@ class StirShakenToolkitCli:
         parser.add_argument(
             "--sp-id",
             help=(
-                "STI-PA service provider account ID; config stipa_sp_id "
-                "or STIPA_SP_ID"
+                "STI-PA STI Participant ID; config stipa_sp_id or "
+                "STIPA_SP_ID"
             ),
         )
         parser.add_argument(
@@ -801,8 +801,8 @@ class StirShakenToolkitCli:
         parser.add_argument(
             "--sp-id",
             help=(
-                "STI-PA service provider account ID; config stipa_sp_id "
-                "or STIPA_SP_ID"
+                "STI-PA STI Participant ID; config stipa_sp_id or "
+                "STIPA_SP_ID"
             ),
         )
 

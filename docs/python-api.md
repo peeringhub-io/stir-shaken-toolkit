@@ -50,7 +50,7 @@ issuer = PeeringhubIssuer.build(
         base_url=profile.stipa_base_url,
         user_id="sti-pa-user",
         password="sti-pa-password",
-        sp_id="818H",
+        sp_id="818H",  # STI-PA STI Participant ID
         expected_crl_url=profile.stipa_crl_url,
     ),
     certificate_policy=policy,
