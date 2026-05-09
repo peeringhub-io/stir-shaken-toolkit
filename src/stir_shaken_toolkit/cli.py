@@ -616,10 +616,7 @@ class StirShakenToolkitCli:
         )
         parser.add_argument(
             "--sp-id",
-            help=(
-                "STI-PA STI Participant ID; config stipa_sp_id or "
-                "STIPA_SP_ID"
-            ),
+            help=("STI-PA STI Participant ID; config stipa_sp_id or " "STIPA_SP_ID"),
         )
         parser.add_argument(
             "--spc",
@@ -800,10 +797,7 @@ class StirShakenToolkitCli:
         )
         parser.add_argument(
             "--sp-id",
-            help=(
-                "STI-PA STI Participant ID; config stipa_sp_id or "
-                "STIPA_SP_ID"
-            ),
+            help=("STI-PA STI Participant ID; config stipa_sp_id or " "STIPA_SP_ID"),
         )
 
     def add_acme_account_args(self, parser: argparse.ArgumentParser) -> None:
