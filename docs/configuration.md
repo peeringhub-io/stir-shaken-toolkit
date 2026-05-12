@@ -24,33 +24,33 @@ Environment variables use only domain prefixes such as `STIPA_*`, `ACME_*`,
 The YAML config uses flat keys. Environment variables use the uppercase names
 shown below.
 
-| Config key | Environment variable | Used by |
-| --- | --- | --- |
-| `stipa_spc` | `STIPA_SPC` | `spc-token`, `peeringhub-issue`, `csr` |
-| `stipa_user_id` | `STIPA_USER_ID` | `spc-token`, `ca-list`, `peeringhub-issue` |
-| `stipa_password` | `STIPA_PASSWORD` | `spc-token`, `ca-list`, `peeringhub-issue` |
-| `stipa_sp_id` | `STIPA_SP_ID` | `spc-token`, `peeringhub-issue` |
-| `stipa_environment` | `STIPA_ENVIRONMENT` | `spc-token`, `ca-list`, Peeringhub fallback |
-| `stipa_atc_fingerprint` | `STIPA_ATC_FINGERPRINT` | `spc-token` |
-| `stipa_output_dir` | `STIPA_OUTPUT_DIR` | `spc-token` |
-| `acme_account_dir` | `ACME_ACCOUNT_DIR` | `fingerprint`, Peeringhub commands |
-| `acme_kid` | `ACME_KID` | Peeringhub commands |
-| `peeringhub_environment` | `PEERINGHUB_ENVIRONMENT` | Peeringhub commands |
-| `shaken_subject_country` | `SHAKEN_SUBJECT_COUNTRY` | `peeringhub-issue`, `csr` |
-| `shaken_subject_state` | `SHAKEN_SUBJECT_STATE` | `peeringhub-issue`, `csr` |
-| `shaken_subject_locality` | `SHAKEN_SUBJECT_LOCALITY` | `peeringhub-issue`, `csr` |
-| `shaken_subject_organization` | `SHAKEN_SUBJECT_ORGANIZATION` | `peeringhub-issue`, `csr` |
-| `shaken_subject_common_name` | `SHAKEN_SUBJECT_COMMON_NAME` | `peeringhub-issue`, `csr` |
-| `shaken_subject_organizational_unit` | `SHAKEN_SUBJECT_ORGANIZATIONAL_UNIT` | `peeringhub-issue`, `csr` |
-| `shaken_private_key_path` | `SHAKEN_PRIVATE_KEY_PATH` | `validate-key-pair` |
-| `shaken_certificate_path` | `SHAKEN_CERTIFICATE_PATH` | `validate-key-pair` |
-| `shaken_csr_path` | `SHAKEN_CSR_PATH` | `validate-key-pair` |
-| `shaken_output_dir` | `SHAKEN_OUTPUT_DIR` | `peeringhub-issue` |
-| `shaken_key_out` | `SHAKEN_KEY_OUT` | `csr`; defaults to `shaken.key` |
-| `shaken_csr_pem_out` | `SHAKEN_CSR_PEM_OUT` | `csr`; defaults to `shaken.csr` |
-| `shaken_csr_der_out` | `SHAKEN_CSR_DER_OUT` | `csr`; optional DER output |
-| `shaken_not_before` | `SHAKEN_NOT_BEFORE` | `peeringhub-issue` |
-| `shaken_not_after` | `SHAKEN_NOT_AFTER` | `peeringhub-issue` |
+| Config key | Environment variable | Purpose | Used by |
+| --- | --- | --- | --- |
+| `stipa_spc` | `STIPA_SPC` | Four-character TNAuthList service provider code. | `spc-token`, `peeringhub-issue`, `csr` |
+| `stipa_user_id` | `STIPA_USER_ID` | STI-PA API user ID. | `spc-token`, `ca-list`, `peeringhub-issue` |
+| `stipa_password` | `STIPA_PASSWORD` | STI-PA API password. | `spc-token`, `ca-list`, `peeringhub-issue` |
+| `stipa_sp_id` | `STIPA_SP_ID` | STI-PA STI Participant ID. | `spc-token`, `peeringhub-issue` |
+| `stipa_environment` | `STIPA_ENVIRONMENT` | STI-PA environment: `staging` or `production`. | `spc-token`, `ca-list`, Peeringhub fallback |
+| `stipa_atc_fingerprint` | `STIPA_ATC_FINGERPRINT` | Account/public-key fingerprint for standalone SPC token requests. | `spc-token` |
+| `stipa_output_dir` | `STIPA_OUTPUT_DIR` | Directory for standalone SPC token summary artifacts. | `spc-token` |
+| `acme_account_dir` | `ACME_ACCOUNT_DIR` | Local Peeringhub account directory containing `account.key` and `account.json`. | `fingerprint`, Peeringhub commands |
+| `acme_kid` | `ACME_KID` | Peeringhub ACME key identifier / JWK `kid`. | Peeringhub commands |
+| `peeringhub_environment` | `PEERINGHUB_ENVIRONMENT` | Peeringhub environment: `staging` or `production`. | Peeringhub commands |
+| `shaken_subject_country` | `SHAKEN_SUBJECT_COUNTRY` | X.509 subject country; defaults to `US`. | `peeringhub-issue`, `csr` |
+| `shaken_subject_state` | `SHAKEN_SUBJECT_STATE` | X.509 subject state or province. | `peeringhub-issue`, `csr` |
+| `shaken_subject_locality` | `SHAKEN_SUBJECT_LOCALITY` | X.509 subject city or locality. | `peeringhub-issue`, `csr` |
+| `shaken_subject_organization` | `SHAKEN_SUBJECT_ORGANIZATION` | X.509 subject organization name. | `peeringhub-issue`, `csr` |
+| `shaken_subject_common_name` | `SHAKEN_SUBJECT_COMMON_NAME` | X.509 subject common name. | `peeringhub-issue`, `csr` |
+| `shaken_subject_organizational_unit` | `SHAKEN_SUBJECT_ORGANIZATIONAL_UNIT` | Optional X.509 subject organizational unit. | `peeringhub-issue`, `csr` |
+| `shaken_private_key_path` | `SHAKEN_PRIVATE_KEY_PATH` | Private key to match against a certificate or CSR. | `validate-key-pair` |
+| `shaken_certificate_path` | `SHAKEN_CERTIFICATE_PATH` | Certificate to validate against the private key. | `validate-key-pair` |
+| `shaken_csr_path` | `SHAKEN_CSR_PATH` | CSR to validate against the private key. | `validate-key-pair` |
+| `shaken_output_dir` | `SHAKEN_OUTPUT_DIR` | New directory for Peeringhub issuance artifacts. | `peeringhub-issue` |
+| `shaken_key_out` | `SHAKEN_KEY_OUT` | Generated CSR private key output; defaults to `shaken.key`. | `csr` |
+| `shaken_csr_pem_out` | `SHAKEN_CSR_PEM_OUT` | Generated PEM CSR output; defaults to `shaken.csr`. | `csr` |
+| `shaken_csr_der_out` | `SHAKEN_CSR_DER_OUT` | Optional generated DER CSR output. | `csr` |
+| `shaken_not_before` | `SHAKEN_NOT_BEFORE` | Optional RFC 3339 ACME order `notBefore`. | `peeringhub-issue` |
+| `shaken_not_after` | `SHAKEN_NOT_AFTER` | Optional RFC 3339 ACME order `notAfter`. | `peeringhub-issue` |
 
 ## Environment Selection
 
