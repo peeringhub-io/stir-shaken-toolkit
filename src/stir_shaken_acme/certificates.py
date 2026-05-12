@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -186,6 +187,12 @@ class ShakenCertificateManager:
         data = pem.encode("utf-8") if isinstance(pem, str) else pem
         return x509.load_pem_x509_certificate(data)
 
+    def parse_csr(self, pem: bytes | str) -> x509.CertificateSigningRequest:
+        """Parse a PEM certificate signing request."""
+
+        data = pem.encode("utf-8") if isinstance(pem, str) else pem
+        return x509.load_pem_x509_csr(data)
+
     def validate_issued_certificate(
         self,
         certificate: x509.Certificate,
@@ -227,7 +234,7 @@ class ShakenCertificateManager:
         """Validate an issued SHAKEN certificate policy."""
 
         policy = self.require_policy()
-        self.require_key_match(certificate, private_key)
+        self.require_certificate_private_key_match(certificate, private_key)
         public_key = certificate.public_key()
         if not isinstance(public_key, ec.EllipticCurvePublicKey) or not isinstance(
             public_key.curve, ec.SECP256R1
@@ -305,24 +312,44 @@ class ShakenCertificateManager:
             ),
         )
 
-    def require_key_match(
+    def require_certificate_private_key_match(
         self, certificate: x509.Certificate, private_key: EllipticCurvePrivateKey
     ) -> None:
         """Validate that a certificate public key matches a private key."""
 
-        certificate_public = certificate.public_key().public_bytes(
-            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-        private_public = private_key.public_key().public_bytes(
-            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-        if (
-            hashlib.sha256(certificate_public).digest()
-            != hashlib.sha256(private_public).digest()
-        ):
+        if not self._public_keys_match(certificate.public_key(), private_key):
             raise ShakenValidationError(
                 "Certificate public key does not match private key"
             )
+
+    def require_csr_private_key_match(
+        self,
+        csr: x509.CertificateSigningRequest,
+        private_key: EllipticCurvePrivateKey,
+    ) -> None:
+        """Validate that a CSR public key matches a private key."""
+
+        if not csr.is_signature_valid:
+            raise ShakenValidationError("CSR signature is invalid")
+        if not self._public_keys_match(csr.public_key(), private_key):
+            raise ShakenValidationError("CSR public key does not match private key")
+
+    def _public_keys_match(
+        self,
+        public_key: Any,
+        private_key: EllipticCurvePrivateKey,
+    ) -> bool:
+        """Return whether a public key matches a private key public component."""
+
+        public_der = public_key.public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        private_der = private_key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        return (
+            hashlib.sha256(public_der).digest() == hashlib.sha256(private_der).digest()
+        )
 
     def require_expected_crl(
         self, crl_distribution_points: x509.CRLDistributionPoints, expected: str

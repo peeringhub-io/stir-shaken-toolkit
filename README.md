@@ -80,7 +80,8 @@ Local CSR and fingerprint utilities:
 ```bash
 stir-shaken-toolkit csr --spc 818H
 stir-shaken-toolkit fingerprint --csr shaken.csr
-stir-shaken-toolkit validate-cert --key account.key --certificate leaf.pem
+stir-shaken-toolkit validate-key-pair --key account.key --certificate leaf.pem
+stir-shaken-toolkit validate-key-pair --key shaken.key --csr shaken.csr
 ```
 
 Standalone STI-PA SPC token request:

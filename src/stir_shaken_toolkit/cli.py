@@ -53,6 +53,8 @@ CERTIFICATE_EXTENSIONS = (".crt", ".pem")
 CSR_EXTENSIONS = (".csr", ".pem")
 KEY_EXTENSIONS = (".key", ".pem")
 YAML_EXTENSIONS = (".yaml", ".yml")
+PEM_CERTIFICATE_BEGIN = b"-----BEGIN CERTIFICATE-----"
+PEM_CSR_BEGIN = b"-----BEGIN CERTIFICATE REQUEST-----"
 
 
 class StirShakenToolkitCli:
@@ -107,8 +109,8 @@ class StirShakenToolkitCli:
             return self.run_spc_token(args, resolver)
         if args.command == "ca-list":
             return self.run_ca_list(args, resolver)
-        if args.command == "validate-cert":
-            return self.run_validate_cert(args, resolver)
+        if args.command == "validate-key-pair":
+            return self.run_validate_key_pair(args, resolver)
         if args.command == "peeringhub-account-setup":
             return self.run_peeringhub_account_setup(args, resolver)
         if args.command == "peeringhub-issue":
@@ -285,35 +287,85 @@ class StirShakenToolkitCli:
         )
         return SUCCESS_EXIT_CODE
 
-    def run_validate_cert(
+    def run_validate_key_pair(
         self, args: argparse.Namespace, resolver: CliValueResolver
     ) -> int:
-        """Run local key/certificate pair validation."""
+        """Run local key pair validation."""
 
-        key_path = resolver.required_path(
-            args.key, "shaken_key_path", "SHAKEN_KEY_PATH", "--key"
+        private_key_path = resolver.required_path(
+            args.key,
+            "shaken_private_key_path",
+            "SHAKEN_PRIVATE_KEY_PATH",
+            "--key",
         )
-        certificate_path = resolver.required_path(
+        certificate_path = resolver.path(
             args.certificate,
             "shaken_certificate_path",
             "SHAKEN_CERTIFICATE_PATH",
-            "--certificate",
         )
+        csr_path = resolver.path(
+            args.csr,
+            "shaken_csr_path",
+            "SHAKEN_CSR_PATH",
+        )
+        if sum([certificate_path is not None, csr_path is not None]) != 1:
+            raise StirShakenError("Use exactly one of --certificate or --csr")
         LOGGER.debug(
-            "Validate cert command: key_path=%s certificate_path=%s",
-            key_path,
+            "Validate key pair command: private_key_path=%s certificate_path=%s "
+            + "csr_path=%s",
+            private_key_path,
             certificate_path,
+            csr_path,
         )
         manager = ShakenCertificateManager()
-        LOGGER.debug("Validate cert command: loading private key")
-        private_key = manager.load_certificate_key(key_path)
-        LOGGER.debug("Validate cert command: parsing certificate")
-        certificate = manager.parse_certificate(certificate_path.read_bytes())
-        LOGGER.debug("Validate cert command: checking key match")
-        manager.require_key_match(certificate, private_key)
-        print("key and certificate match")
-        LOGGER.debug("Validate cert command completed")
+        LOGGER.debug("Validate key pair command: loading private key")
+        private_key = manager.load_certificate_key(private_key_path)
+        if certificate_path is not None:
+            LOGGER.debug("Validate key pair command: parsing certificate")
+            certificate = self.parse_key_pair_certificate(manager, certificate_path)
+            LOGGER.debug("Validate key pair command: checking certificate key match")
+            manager.require_certificate_private_key_match(certificate, private_key)
+            print("key and certificate match")
+        if csr_path is not None:
+            LOGGER.debug("Validate key pair command: parsing CSR")
+            csr = self.parse_key_pair_csr(manager, csr_path)
+            LOGGER.debug("Validate key pair command: checking CSR key match")
+            manager.require_csr_private_key_match(csr, private_key)
+            print("key and CSR match")
+        LOGGER.debug("Validate key pair command completed")
         return SUCCESS_EXIT_CODE
+
+    def parse_key_pair_certificate(
+        self, manager: ShakenCertificateManager, certificate_path: Path
+    ) -> Any:
+        """Parse a key-pair validation certificate."""
+
+        data = certificate_path.read_bytes()
+        try:
+            return manager.parse_certificate(data)
+        except ValueError as exc:
+            if PEM_CSR_BEGIN in data:
+                raise StirShakenError(
+                    "Expected certificate PEM but found CSR; use --csr"
+                ) from exc
+            raise StirShakenError(
+                f"Failed to read certificate: {certificate_path}"
+            ) from exc
+
+    def parse_key_pair_csr(
+        self, manager: ShakenCertificateManager, csr_path: Path
+    ) -> Any:
+        """Parse a key-pair validation CSR."""
+
+        data = csr_path.read_bytes()
+        try:
+            return manager.parse_csr(data)
+        except ValueError as exc:
+            if PEM_CERTIFICATE_BEGIN in data:
+                raise StirShakenError(
+                    "Expected CSR PEM but found certificate; use --certificate"
+                ) from exc
+            raise StirShakenError(f"Failed to read CSR: {csr_path}") from exc
 
     def run_peeringhub_account_setup(
         self, args: argparse.Namespace, resolver: CliValueResolver
@@ -591,7 +643,7 @@ class StirShakenToolkitCli:
         self.add_fingerprint_parser(subparsers)
         self.add_spc_token_parser(subparsers)
         self.add_ca_list_parser(subparsers)
-        self.add_validate_cert_parser(subparsers)
+        self.add_validate_key_pair_parser(subparsers)
         self.add_peeringhub_account_parser(subparsers)
         self.add_peeringhub_issue_parser(subparsers)
         self.add_csr_parser(subparsers)
@@ -739,23 +791,27 @@ class StirShakenToolkitCli:
             help="Include certificate details in the output",
         )
 
-    def add_validate_cert_parser(self, subparsers: Any) -> None:
-        """Add the certificate validation parser."""
+    def add_validate_key_pair_parser(self, subparsers: Any) -> None:
+        """Add the key pair validation parser."""
 
         parser = subparsers.add_parser(
-            "validate-cert",
-            help="Validate a key/certificate pair",
+            "validate-key-pair",
+            help="Validate a private key pair",
             description=dedent("""\
-                Validate that a local SHAKEN certificate public key matches a
-                local EC P-256 private key. This verifies that the certificate
-                belongs with the private key file. This command is local-only.
+                Validate that a local SHAKEN certificate or CSR public key
+                matches a local EC P-256 private key. This verifies that the
+                certificate or CSR belongs with the private key file. This
+                command is local-only.
                 """),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         self.add_file_argument(
             parser,
             "--key",
-            help="SHAKEN private key path; config shaken_key_path or SHAKEN_KEY_PATH",
+            help=(
+                "SHAKEN private key path; config shaken_private_key_path or "
+                "SHAKEN_PRIVATE_KEY_PATH"
+            ),
             extensions=KEY_EXTENSIONS,
         )
         self.add_file_argument(
@@ -766,6 +822,12 @@ class StirShakenToolkitCli:
                 "SHAKEN_CERTIFICATE_PATH"
             ),
             extensions=CERTIFICATE_EXTENSIONS,
+        )
+        self.add_file_argument(
+            parser,
+            "--csr",
+            help="SHAKEN CSR path; config shaken_csr_path or SHAKEN_CSR_PATH",
+            extensions=CSR_EXTENSIONS,
         )
 
     def add_peeringhub_account_parser(self, subparsers: Any) -> None:

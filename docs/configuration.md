@@ -42,8 +42,9 @@ shown below.
 | `shaken_subject_organization` | `SHAKEN_SUBJECT_ORGANIZATION` | `peeringhub-issue`, `csr` |
 | `shaken_subject_common_name` | `SHAKEN_SUBJECT_COMMON_NAME` | `peeringhub-issue`, `csr` |
 | `shaken_subject_organizational_unit` | `SHAKEN_SUBJECT_ORGANIZATIONAL_UNIT` | `peeringhub-issue`, `csr` |
-| `shaken_key_path` | `SHAKEN_KEY_PATH` | `validate-cert` |
-| `shaken_certificate_path` | `SHAKEN_CERTIFICATE_PATH` | `validate-cert` |
+| `shaken_private_key_path` | `SHAKEN_PRIVATE_KEY_PATH` | `validate-key-pair` |
+| `shaken_certificate_path` | `SHAKEN_CERTIFICATE_PATH` | `validate-key-pair` |
+| `shaken_csr_path` | `SHAKEN_CSR_PATH` | `validate-key-pair` |
 | `shaken_output_dir` | `SHAKEN_OUTPUT_DIR` | `peeringhub-issue` |
 | `shaken_key_out` | `SHAKEN_KEY_OUT` | `csr`; defaults to `shaken.key` |
 | `shaken_csr_pem_out` | `SHAKEN_CSR_PEM_OUT` | `csr`; defaults to `shaken.csr` |
