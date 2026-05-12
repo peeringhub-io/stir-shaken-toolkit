@@ -10,6 +10,7 @@ from .certificates import (
     ShakenCertificatePolicy,
     ShakenSubject,
 )
+from .errors import StipaRemoteDisconnectedError
 from .fingerprints import FingerprintCalculator
 from .issuer import (
     IssuanceValidationError,
@@ -34,6 +35,7 @@ __all__ = [
     "StipaCaList",
     "StipaCaListEntry",
     "StipaClient",
+    "StipaRemoteDisconnectedError",
     "StipaSettings",
     "StipaToken",
     "StipaTokenPackage",

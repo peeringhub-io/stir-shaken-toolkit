@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+from collections.abc import Iterator
+from http.client import RemoteDisconnected
 import json
 import logging
 import time
@@ -17,7 +19,7 @@ from cryptography.utils import CryptographyDeprecationWarning
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import ExtensionOID, NameOID
 
-from .errors import StipaError
+from .errors import StipaError, StipaRemoteDisconnectedError
 
 LOGGER = logging.getLogger(__name__)
 SENSITIVE_KEYS = {
@@ -45,6 +47,62 @@ SUMMARY_KEYS = (
     "errors",
 )
 MAX_DIAGNOSTIC_JSON_LENGTH = 1000
+
+
+def is_remote_disconnected(exc: BaseException) -> bool:
+    """Return whether an exception chain contains RemoteDisconnected.
+
+    :param exc: Exception to inspect.
+    :type exc: BaseException
+    :return: Whether the exception or a nested exception is RemoteDisconnected.
+    :rtype: bool
+    """
+
+    stack = [exc]
+    seen: set[int] = set()
+    while stack:
+        current = stack.pop()
+        current_id = id(current)
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        if isinstance(current, RemoteDisconnected):
+            return True
+        stack.extend(nested_exceptions(current))
+    return False
+
+
+def nested_exceptions(exc: BaseException) -> Iterator[BaseException]:
+    """Yield nested exceptions from causes, contexts, and args.
+
+    :param exc: Exception to inspect.
+    :type exc: BaseException
+    :return: Nested exceptions.
+    :rtype: Iterator[BaseException]
+    """
+
+    if exc.__cause__ is not None:
+        yield exc.__cause__
+    if exc.__context__ is not None:
+        yield exc.__context__
+    for arg in exc.args:
+        yield from exceptions_from_value(arg)
+
+
+def exceptions_from_value(value: object) -> Iterator[BaseException]:
+    """Yield exceptions contained in an arbitrary value.
+
+    :param value: Value to inspect.
+    :type value: object
+    :return: Exceptions directly or recursively contained in the value.
+    :rtype: Iterator[BaseException]
+    """
+
+    if isinstance(value, BaseException):
+        yield value
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from exceptions_from_value(item)
 
 
 @dataclass(frozen=True)
@@ -273,7 +331,7 @@ class StipaClient:
                 timeout=self.settings.timeout_seconds,
             )
         except requests.RequestException as exc:
-            raise StipaError(f"{context} failed for {url}: {exc}") from exc
+            raise self.request_exception_error(context, url, exc) from exc
         return self.decode_json_response(context, url, response)
 
     def build_spc_token_request_body(
@@ -314,8 +372,30 @@ class StipaClient:
                 timeout=self.settings.timeout_seconds,
             )
         except requests.RequestException as exc:
-            raise StipaError(f"{context} failed for {url}: {exc}") from exc
+            raise self.request_exception_error(context, url, exc) from exc
         return self.decode_json_response(context, url, response)
+
+    def request_exception_error(
+        self,
+        context: str,
+        url: str,
+        exc: requests.RequestException,
+    ) -> StipaError:
+        """Build a STI-PA error from a requests exception.
+
+        :param context: STI-PA operation that failed.
+        :type context: str
+        :param url: URL that failed.
+        :type url: str
+        :param exc: Original requests exception.
+        :type exc: requests.RequestException
+        :return: STI-PA error to raise.
+        :rtype: StipaError
+        """
+
+        if is_remote_disconnected(exc):
+            return StipaRemoteDisconnectedError(context, url)
+        return StipaError(f"{context} failed for {url}: {exc}")
 
     def decode_json_response(
         self,
@@ -527,7 +607,7 @@ class StipaClient:
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise StipaError(f"STI-PA download failed for {url}: {exc}") from exc
+            raise self.request_exception_error("STI-PA download", url, exc) from exc
         return response.text
 
     def download_bytes(self, url: str) -> bytes:
@@ -552,7 +632,7 @@ class StipaClient:
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise StipaError(f"STI-PA download failed for {url}: {exc}") from exc
+            raise self.request_exception_error("STI-PA download", url, exc) from exc
         return response.content
 
     def decode_jwt_segment(self, token: str, index: int) -> dict[str, Any]:
