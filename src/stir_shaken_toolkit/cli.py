@@ -21,6 +21,7 @@ from stir_shaken_acme import (
     ShakenCertificateManager,
     ShakenCertificatePolicy,
     ShakenSubject,
+    StipaCaList,
     StipaClient,
     StipaSettings,
     StipaTokenPackage,
@@ -104,6 +105,8 @@ class StirShakenToolkitCli:
             return self.run_fingerprint(args, resolver)
         if args.command == "spc-token":
             return self.run_spc_token(args, resolver)
+        if args.command == "ca-list":
+            return self.run_ca_list(args, resolver)
         if args.command == "validate-cert":
             return self.run_validate_cert(args, resolver)
         if args.command == "peeringhub-account-setup":
@@ -235,6 +238,51 @@ class StirShakenToolkitCli:
             package.exp,
         )
         print(json.dumps(output, indent=2, sort_keys=True))
+        return SUCCESS_EXIT_CODE
+
+    def run_ca_list(self, args: argparse.Namespace, resolver: CliValueResolver) -> int:
+        """Run the STI-PA CA-list workflow."""
+
+        environment = self.resolve_stipa_environment(args, resolver)
+        base_url = self.resolve_stipa_base_url(environment)
+        LOGGER.debug(
+            "CA list command: environment=%s base_url=%s json=%s details=%s",
+            environment,
+            base_url,
+            args.json,
+            args.details,
+        )
+        ca_list = StipaClient(
+            StipaSettings(
+                base_url=base_url,
+                user_id=resolver.required_string(
+                    args.user_id,
+                    "stipa_user_id",
+                    "STIPA_USER_ID",
+                    "--user-id or STIPA_USER_ID",
+                ),
+                password=resolver.required_string(
+                    args.password,
+                    "stipa_password",
+                    "STIPA_PASSWORD",
+                    "--password or STIPA_PASSWORD",
+                ),
+                sp_id="",
+                timeout_seconds=DEFAULT_TIMEOUT_SECONDS,
+            )
+        ).request_ca_list()
+        if args.json:
+            output = ca_list.as_dict(args.details)
+            print(json.dumps(output, indent=2, sort_keys=True))
+        elif args.details:
+            print(self.ca_list_details_table(ca_list))
+        else:
+            print(self.ca_list_company_table(ca_list))
+        LOGGER.debug(
+            "CA list command completed: total_cas=%s total_companies=%s",
+            ca_list.total_cas,
+            len(ca_list.companies),
+        )
         return SUCCESS_EXIT_CODE
 
     def run_validate_cert(
@@ -542,6 +590,7 @@ class StirShakenToolkitCli:
         )
         self.add_fingerprint_parser(subparsers)
         self.add_spc_token_parser(subparsers)
+        self.add_ca_list_parser(subparsers)
         self.add_validate_cert_parser(subparsers)
         self.add_peeringhub_account_parser(subparsers)
         self.add_peeringhub_issue_parser(subparsers)
@@ -612,7 +661,7 @@ class StirShakenToolkitCli:
         )
         parser.add_argument(
             "--password",
-            help="STI-PA API password; config stipa_password or STIPA_PASSWORD",
+            help=("STI-PA API password; config stipa_password or " "STIPA_PASSWORD"),
         )
         parser.add_argument(
             "--sp-id",
@@ -650,6 +699,44 @@ class StirShakenToolkitCli:
                 "Also write sensitive JWT/request/response diagnostics when "
                 "--output-dir is set"
             ),
+        )
+
+    def add_ca_list_parser(self, subparsers: Any) -> None:
+        """Add the STI-PA CA-list parser."""
+
+        parser = subparsers.add_parser(
+            "ca-list",
+            help="List STI-PA STI-CA companies",
+            description=dedent("""\
+                Request the STI-PA CA trust list and display the STI-CA
+                companies found in the embedded certificates. This command
+                contacts STI-PA and requires STI-PA API credentials, but it
+                does not require an STI Participant ID.
+                """),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        parser.add_argument(
+            "--user-id",
+            help="STI-PA API user ID; config stipa_user_id or STIPA_USER_ID",
+        )
+        parser.add_argument(
+            "--password",
+            help=("STI-PA API password; config stipa_password or " "STIPA_PASSWORD"),
+        )
+        parser.add_argument(
+            "--staging",
+            action="store_true",
+            help="Use STI-PA staging instead of production",
+        )
+        parser.add_argument(
+            "--json",
+            action="store_true",
+            help="Write JSON instead of a human-readable table",
+        )
+        parser.add_argument(
+            "--details",
+            action="store_true",
+            help="Include certificate details in the output",
         )
 
     def add_validate_cert_parser(self, subparsers: Any) -> None:
@@ -1044,6 +1131,85 @@ class StirShakenToolkitCli:
             "token": package.token,
             "x5u": package.x5u,
         }
+
+    def ca_list_company_table(self, ca_list: StipaCaList) -> str:
+        """Build the compact CA-list company table."""
+
+        rows = [
+            (str(index), company) for index, company in enumerate(ca_list.companies, 1)
+        ]
+        index_width = max([len("#"), *(len(index) for index, _company in rows)])
+        company_width = max(
+            [len("Company"), *(len(company) for _index, company in rows)]
+        )
+        lines = [
+            f"total_cas: {ca_list.total_cas}",
+            f"total_companies: {len(ca_list.companies)}",
+            "",
+            f"{'#':>{index_width}}  {'Company':<{company_width}}",
+            f"{'-' * index_width}  {'-' * company_width}",
+        ]
+        lines.extend(
+            f"{index:>{index_width}}  {company:<{company_width}}"
+            for index, company in rows
+        )
+        return "\n".join(lines)
+
+    def ca_list_details_table(self, ca_list: StipaCaList) -> str:
+        """Build the detailed CA-list certificate table."""
+
+        rows = [
+            (
+                entry.company_name,
+                entry.not_after,
+                self.short_text(entry.serial_number, 18),
+                self.short_fingerprint(entry.fingerprint_sha256),
+            )
+            for entry in ca_list.entries
+        ]
+        headers = ("Company", "Not After", "Serial", "SHA-256")
+        widths = [
+            max([len(headers[0]), *(len(row[0]) for row in rows)]),
+            max([len(headers[1]), *(len(row[1]) for row in rows)]),
+            max([len(headers[2]), *(len(row[2]) for row in rows)]),
+            max([len(headers[3]), *(len(row[3]) for row in rows)]),
+        ]
+        lines = [
+            f"total_cas: {ca_list.total_cas}",
+            f"total_companies: {len(ca_list.companies)}",
+            "",
+            (
+                f"{headers[0]:<{widths[0]}}  {headers[1]:<{widths[1]}}  "
+                f"{headers[2]:<{widths[2]}}  {headers[3]:<{widths[3]}}"
+            ),
+            (
+                f"{'-' * widths[0]}  {'-' * widths[1]}  "
+                f"{'-' * widths[2]}  {'-' * widths[3]}"
+            ),
+        ]
+        lines.extend(
+            (
+                f"{company:<{widths[0]}}  {not_after:<{widths[1]}}  "
+                f"{serial_number:<{widths[2]}}  {fingerprint:<{widths[3]}}"
+            )
+            for company, not_after, serial_number, fingerprint in rows
+        )
+        return "\n".join(lines)
+
+    def short_text(self, value: str, maximum_length: int) -> str:
+        """Return a compact display value."""
+
+        if len(value) <= maximum_length:
+            return value
+        return f"{value[:maximum_length - 3]}..."
+
+    def short_fingerprint(self, fingerprint: str) -> str:
+        """Return a compact SHA-256 fingerprint display value."""
+
+        parts = fingerprint.split(":")
+        if len(parts) <= 8:
+            return fingerprint
+        return f"{':'.join(parts[:8])}:..."
 
     def write_spc_token_artifacts(
         self,

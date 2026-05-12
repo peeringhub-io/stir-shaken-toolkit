@@ -17,6 +17,8 @@ from .issuer import (
     StirShakenIssuer,
 )
 from .stipa import (
+    StipaCaList,
+    StipaCaListEntry,
     StipaClient,
     StipaSettings,
     StipaToken,
@@ -29,6 +31,8 @@ __all__ = [
     "FingerprintCalculator",
     "IssuanceValidationError",
     "SHAKEN_POLICY_OID_ARC",
+    "StipaCaList",
+    "StipaCaListEntry",
     "StipaClient",
     "StipaSettings",
     "StipaToken",

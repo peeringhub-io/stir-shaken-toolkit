@@ -91,6 +91,13 @@ stir-shaken-toolkit spc-token \
   --fingerprint "SHA256 AA:BB:..."
 ```
 
+List STI-PA STI-CA companies:
+
+```bash
+stir-shaken-toolkit ca-list
+stir-shaken-toolkit ca-list --json --details
+```
+
 Run `stir-shaken-toolkit --help` or
 `stir-shaken-toolkit <command> --help` for the current command-line reference.
 

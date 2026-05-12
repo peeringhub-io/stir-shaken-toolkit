@@ -27,10 +27,10 @@ shown below.
 | Config key | Environment variable | Used by |
 | --- | --- | --- |
 | `stipa_spc` | `STIPA_SPC` | `spc-token`, `peeringhub-issue`, `csr` |
-| `stipa_user_id` | `STIPA_USER_ID` | `spc-token`, `peeringhub-issue` |
-| `stipa_password` | `STIPA_PASSWORD` | `spc-token`, `peeringhub-issue` |
+| `stipa_user_id` | `STIPA_USER_ID` | `spc-token`, `ca-list`, `peeringhub-issue` |
+| `stipa_password` | `STIPA_PASSWORD` | `spc-token`, `ca-list`, `peeringhub-issue` |
 | `stipa_sp_id` | `STIPA_SP_ID` | `spc-token`, `peeringhub-issue` |
-| `stipa_environment` | `STIPA_ENVIRONMENT` | `spc-token`, Peeringhub fallback |
+| `stipa_environment` | `STIPA_ENVIRONMENT` | `spc-token`, `ca-list`, Peeringhub fallback |
 | `stipa_atc_fingerprint` | `STIPA_ATC_FINGERPRINT` | `spc-token` |
 | `stipa_output_dir` | `STIPA_OUTPUT_DIR` | `spc-token` |
 | `acme_account_dir` | `ACME_ACCOUNT_DIR` | `fingerprint`, Peeringhub commands |
@@ -58,8 +58,8 @@ those commands also accept `stipa_environment` as a fallback. Both values must
 be `staging` or `production`; `production` is the built-in default when a
 command allows a default.
 
-For `spc-token`, production is the default and `--staging` selects the staging
-STI-PA URL from the command line.
+For `spc-token` and `ca-list`, production is the default and `--staging`
+selects the staging STI-PA URL from the command line.
 
 ## Account Directory Defaults
 

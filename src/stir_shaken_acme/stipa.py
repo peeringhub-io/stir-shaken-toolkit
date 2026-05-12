@@ -6,13 +6,16 @@ import base64
 import json
 import logging
 import time
+import warnings
 from dataclasses import dataclass
 from typing import Any
 
 import jwt
 import requests
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
+from cryptography.utils import CryptographyDeprecationWarning
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.x509.oid import ExtensionOID, NameOID
 
 from .errors import StipaError
 
@@ -20,6 +23,8 @@ LOGGER = logging.getLogger(__name__)
 SENSITIVE_KEYS = {
     "accessToken",
     "access_token",
+    "caList",
+    "ca_list",
     "Authorization",
     "authorization",
     "jwt",
@@ -102,6 +107,57 @@ class StipaToken:
     exp: int
 
 
+@dataclass(frozen=True)
+class StipaCaListEntry:
+    """One STI-CA certificate entry from the STI-PA trust list."""
+
+    company_name: str
+    subject: str
+    issuer: str
+    serial_number: str
+    not_before: str
+    not_after: str
+    fingerprint_sha256: str
+    policy_oids: tuple[str, ...]
+    extension_oids: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        """Return the entry as a JSON-ready mapping."""
+
+        return {
+            "company_name": self.company_name,
+            "extension_oids": list(self.extension_oids),
+            "fingerprint_sha256": self.fingerprint_sha256,
+            "issuer": self.issuer,
+            "not_after": self.not_after,
+            "not_before": self.not_before,
+            "policy_oids": list(self.policy_oids),
+            "serial_number": self.serial_number,
+            "subject": self.subject,
+        }
+
+
+@dataclass(frozen=True)
+class StipaCaList:
+    """Decoded STI-PA STI-CA trust list."""
+
+    total_cas: int
+    companies: tuple[str, ...]
+    entries: tuple[StipaCaListEntry, ...]
+
+    def as_dict(self, include_details: bool = False) -> dict[str, object]:
+        """Return the trust list as a JSON-ready mapping."""
+
+        output: dict[str, object] = {
+            "companies": list(self.companies),
+            "total_cas": self.total_cas,
+            "total_companies": len(self.companies),
+        }
+        if include_details:
+            output["entries"] = [entry.as_dict() for entry in self.entries]
+        return output
+
+
 class StipaClient:
     """Client for STI-PA login, SPC token request, and token validation."""
 
@@ -136,6 +192,42 @@ class StipaClient:
             token, crl_url, tn_auth_list_value, fingerprint, request_body, response
         )
 
+    def request_ca_list(self) -> StipaCaList:
+        """Request and decode the STI-PA STI-CA trust list.
+
+        :return: Decoded STI-CA trust list.
+        :rtype: StipaCaList
+        """
+
+        LOGGER.debug("STI-PA CA list request started")
+        access_token = self.extract_access_token(self.login())
+        response = self.get_json(
+            f"{self.settings.base_url}/api/v1/ca-list",
+            {"accept": "application/jose+json", "Authorization": access_token},
+            "STI-PA CA list",
+        )
+        ca_list_token = self.extract_ca_list_token(response)
+        payload = self.decode_jwt_segment(ca_list_token, 1)
+        trust_list = payload.get("trustList")
+        if not isinstance(trust_list, list):
+            raise StipaError("STI-PA CA list payload missing trustList")
+        entries = tuple(
+            self.ca_list_entry_from_certificate(certificate)
+            for certificate in trust_list
+        )
+        company_names = {entry.company_name for entry in entries if entry.company_name}
+        companies = tuple(sorted(company_names))
+        LOGGER.debug(
+            "STI-PA CA list completed: total_cas=%s total_companies=%s",
+            len(entries),
+            len(companies),
+        )
+        return StipaCaList(
+            total_cas=len(entries),
+            companies=companies,
+            entries=tuple(sorted(entries, key=lambda entry: entry.company_name)),
+        )
+
     def login(self) -> dict[str, Any]:
         """Authenticate with STI-PA."""
 
@@ -159,6 +251,30 @@ class StipaClient:
             request_body,
             "STI-PA SPC token",
         )
+
+    def get_json(
+        self,
+        url: str,
+        headers: dict[str, str],
+        context: str,
+    ) -> dict[str, Any]:
+        """GET JSON from STI-PA."""
+
+        LOGGER.debug(
+            "%s request: url=%s headers=%s",
+            context,
+            url,
+            sanitize_json(headers),
+        )
+        try:
+            response = self.session.get(
+                url,
+                headers=headers,
+                timeout=self.settings.timeout_seconds,
+            )
+        except requests.RequestException as exc:
+            raise StipaError(f"{context} failed for {url}: {exc}") from exc
+        return self.decode_json_response(context, url, response)
 
     def build_spc_token_request_body(
         self, tn_auth_list_value: str, fingerprint: str
@@ -199,6 +315,16 @@ class StipaClient:
             )
         except requests.RequestException as exc:
             raise StipaError(f"{context} failed for {url}: {exc}") from exc
+        return self.decode_json_response(context, url, response)
+
+    def decode_json_response(
+        self,
+        context: str,
+        url: str,
+        response: requests.Response,
+    ) -> dict[str, Any]:
+        """Decode and validate one STI-PA JSON response."""
+
         try:
             decoded = response.json() if response.content else {}
         except json.JSONDecodeError as exc:
@@ -371,6 +497,14 @@ class StipaClient:
             raise StipaError("STI-PA token response missing crl")
         return crl_url
 
+    def extract_ca_list_token(self, response: dict[str, Any]) -> str:
+        """Extract the STI-PA CA list token."""
+
+        token = response.get("caList")
+        if not isinstance(token, str) or not token:
+            raise StipaError("STI-PA CA list response missing caList")
+        return token
+
     def download_text(self, url: str) -> str:
         """Download text."""
 
@@ -426,7 +560,7 @@ class StipaClient:
 
         segments = token.split(".")
         if len(segments) != 3:
-            raise StipaError("SPC token must have three JWT segments")
+            raise StipaError("JWT must have three segments")
         padding = "=" * ((4 - len(segments[index]) % 4) % 4)
         decoded = json.loads(
             base64.urlsafe_b64decode(f"{segments[index]}{padding}".encode("ascii"))
@@ -453,6 +587,71 @@ class StipaClient:
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+
+    def ca_list_entry_from_certificate(
+        self, certificate_value: object
+    ) -> StipaCaListEntry:
+        """Build a CA-list entry from one certificate value."""
+
+        if not isinstance(certificate_value, str):
+            raise StipaError("STI-PA CA list trustList certificate is not a string")
+        certificate = self.parse_ca_list_certificate(certificate_value)
+        common_names = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        company_name = str(common_names[0].value) if common_names else ""
+        fingerprint = certificate.fingerprint(hashes.SHA256()).hex().upper()
+        return StipaCaListEntry(
+            company_name=company_name,
+            subject=certificate.subject.rfc4514_string(),
+            issuer=certificate.issuer.rfc4514_string(),
+            serial_number=str(certificate.serial_number),
+            not_before=certificate.not_valid_before_utc.isoformat().replace(
+                "+00:00", "Z"
+            ),
+            not_after=certificate.not_valid_after_utc.isoformat().replace(
+                "+00:00", "Z"
+            ),
+            fingerprint_sha256=":".join(
+                fingerprint[index : index + 2]
+                for index in range(0, len(fingerprint), 2)
+            ),
+            policy_oids=tuple(self.certificate_policy_oids(certificate)),
+            extension_oids=tuple(
+                extension.oid.dotted_string for extension in certificate.extensions
+            ),
+        )
+
+    def parse_ca_list_certificate(self, certificate_value: str) -> x509.Certificate:
+        """Parse one STI-PA CA-list certificate."""
+
+        certificate_bytes = certificate_value.encode("utf-8")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=CryptographyDeprecationWarning,
+            )
+            try:
+                return x509.load_pem_x509_certificate(certificate_bytes)
+            except ValueError:
+                try:
+                    decoded = base64.b64decode(certificate_value.strip(), validate=True)
+                    return x509.load_der_x509_certificate(decoded)
+                except ValueError as exc:
+                    raise StipaError(
+                        "STI-PA CA list certificate could not be parsed"
+                    ) from exc
+
+    def certificate_policy_oids(self, certificate: x509.Certificate) -> list[str]:
+        """Return certificate policy OIDs from a certificate."""
+
+        try:
+            policies = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.CERTIFICATE_POLICIES
+            ).value
+        except x509.ExtensionNotFound:
+            return []
+        if not isinstance(policies, x509.CertificatePolicies):
+            return []
+        return [policy.policy_identifier.dotted_string for policy in policies]
 
 
 def sanitize_value(value: Any) -> Any:
