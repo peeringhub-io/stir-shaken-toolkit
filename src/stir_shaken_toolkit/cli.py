@@ -16,6 +16,7 @@ import argcomplete
 from argcomplete.completers import DirectoriesCompleter, FilesCompleter
 
 from stir_shaken_acme import (
+    CertificateInspector,
     FingerprintCalculator,
     IssuanceValidationError,
     ShakenCertificateManager,
@@ -111,6 +112,8 @@ class StirShakenToolkitCli:
             return self.run_ca_list(args, resolver)
         if args.command == "validate-key-pair":
             return self.run_validate_key_pair(args, resolver)
+        if args.command == "inspect":
+            return self.run_inspect(args, resolver)
         if args.command == "peeringhub-account-setup":
             return self.run_peeringhub_account_setup(args, resolver)
         if args.command == "peeringhub-issue":
@@ -333,6 +336,52 @@ class StirShakenToolkitCli:
             manager.require_csr_private_key_match(csr, private_key)
             print("key and CSR match")
         LOGGER.debug("Validate key pair command completed")
+        return SUCCESS_EXIT_CODE
+
+    def run_inspect(self, args: argparse.Namespace, _resolver: CliValueResolver) -> int:
+        """Run local CSR or certificate inspection."""
+
+        source_count = sum([args.certificate is not None, args.csr is not None])
+        if source_count != 1:
+            raise StirShakenError("Use exactly one of --certificate or --csr")
+        inspector = CertificateInspector()
+        if args.certificate is not None:
+            path = Path(args.certificate)
+            LOGGER.debug(
+                "Inspect command: source=certificate path=%s json=%s",
+                path,
+                args.json,
+            )
+            data = path.read_bytes()
+            if PEM_CSR_BEGIN in data:
+                raise StirShakenError(
+                    "Expected certificate PEM but found CSR; use --csr"
+                )
+            try:
+                inspections = inspector.inspect_pem_bundle_bytes(data)
+            except ValueError as exc:
+                raise StirShakenError(f"Failed to read certificate: {path}") from exc
+            output = [inspection.as_dict() for inspection in inspections]
+            self.print_inspection_output(output, args.json)
+            LOGGER.debug(
+                "Inspect command completed: source=certificate certificate_count=%s",
+                len(output),
+            )
+            return SUCCESS_EXIT_CODE
+        path = Path(args.csr)
+        LOGGER.debug("Inspect command: source=csr path=%s json=%s", path, args.json)
+        data = path.read_bytes()
+        if PEM_CERTIFICATE_BEGIN in data:
+            raise StirShakenError(
+                "Expected CSR PEM but found certificate; use --certificate"
+            )
+        try:
+            inspection = inspector.inspect_csr_bytes(data)
+        except ValueError as exc:
+            raise StirShakenError(f"Failed to read CSR: {path}") from exc
+        output = inspection.as_dict()
+        self.print_inspection_output(output, args.json)
+        LOGGER.debug("Inspect command completed: source=csr")
         return SUCCESS_EXIT_CODE
 
     def parse_key_pair_certificate(
@@ -644,6 +693,7 @@ class StirShakenToolkitCli:
         self.add_spc_token_parser(subparsers)
         self.add_ca_list_parser(subparsers)
         self.add_validate_key_pair_parser(subparsers)
+        self.add_inspect_parser(subparsers)
         self.add_peeringhub_account_parser(subparsers)
         self.add_peeringhub_issue_parser(subparsers)
         self.add_csr_parser(subparsers)
@@ -828,6 +878,36 @@ class StirShakenToolkitCli:
             "--csr",
             help="SHAKEN CSR path; config shaken_csr_path or SHAKEN_CSR_PATH",
             extensions=CSR_EXTENSIONS,
+        )
+
+    def add_inspect_parser(self, subparsers: Any) -> None:
+        """Add the CSR and certificate inspection parser."""
+
+        parser = subparsers.add_parser(
+            "inspect",
+            help="Inspect a CSR or certificate",
+            description=dedent("""\
+                Inspect the contents of a local PEM CSR, PEM certificate, or
+                PEM certificate bundle. This command is local-only.
+                """),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        self.add_file_argument(
+            parser,
+            "--certificate",
+            help="Certificate or certificate-chain file to inspect, PEM or CRT",
+            extensions=CERTIFICATE_EXTENSIONS,
+        )
+        self.add_file_argument(
+            parser,
+            "--csr",
+            help="CSR file to inspect, usually shaken.csr",
+            extensions=CSR_EXTENSIONS,
+        )
+        parser.add_argument(
+            "--json",
+            action="store_true",
+            help="Write full JSON inspection output",
         )
 
     def add_peeringhub_account_parser(self, subparsers: Any) -> None:
@@ -1257,6 +1337,168 @@ class StirShakenToolkitCli:
             for company, not_after, serial_number, fingerprint in rows
         )
         return "\n".join(lines)
+
+    def print_inspection_output(
+        self, output: dict[str, Any] | list[dict[str, Any]], json_output: bool
+    ) -> None:
+        """Print inspection output.
+
+        :param output: Inspection output.
+        :type output: dict[str, Any] | list[dict[str, Any]]
+        :param json_output: Whether to print full JSON.
+        :type json_output: bool
+        :return: None.
+        :rtype: None
+        """
+
+        if json_output:
+            print(json.dumps(output, indent=2, sort_keys=True))
+            return
+        if isinstance(output, list):
+            for index, item in enumerate(output, 1):
+                if index > 1:
+                    print()
+                print(f"Certificate {index}")
+                print("-------------")
+                print(self.inspection_summary(item))
+            return
+        print(self.inspection_summary(output))
+
+    def inspection_summary(self, inspection: dict[str, Any]) -> str:
+        """Build a concise human-readable inspection summary.
+
+        :param inspection: Inspection data.
+        :type inspection: dict[str, Any]
+        :return: Human-readable summary.
+        :rtype: str
+        """
+
+        lines = [
+            f"type: {inspection.get('type')}",
+            f"subject: {inspection.get('subject_rfc4514')}",
+        ]
+        if inspection.get("issuer_rfc4514") is not None:
+            lines.append(f"issuer: {inspection.get('issuer_rfc4514')}")
+        if inspection.get("serial_number") is not None:
+            lines.append(f"serial_number: {inspection.get('serial_number')}")
+        if inspection.get("not_before") is not None:
+            lines.append(f"not_before: {inspection.get('not_before')}")
+        if inspection.get("not_after") is not None:
+            lines.append(f"not_after: {inspection.get('not_after')}")
+        if inspection.get("signature_valid") is not None:
+            lines.append(f"signature_valid: {inspection.get('signature_valid')}")
+        if inspection.get("signature_algorithm") is not None:
+            lines.append(
+                f"signature_algorithm: {inspection.get('signature_algorithm')}"
+            )
+        if inspection.get("fingerprint_sha256") is not None:
+            lines.append(f"fingerprint_sha256: {inspection.get('fingerprint_sha256')}")
+        public_key = inspection.get("public_key")
+        if isinstance(public_key, dict):
+            lines.append(f"public_key: {self.compact_mapping(public_key)}")
+        public_key_fingerprint = inspection.get("public_key_fingerprint_sha256")
+        if public_key_fingerprint is not None:
+            lines.append(f"public_key_fingerprint_sha256: {public_key_fingerprint}")
+        extensions = inspection.get("extensions")
+        if isinstance(extensions, list):
+            lines.append("extensions:")
+            for extension in extensions:
+                if isinstance(extension, dict):
+                    lines.append(f"  - {self.extension_summary(extension)}")
+        return "\n".join(lines)
+
+    def extension_summary(self, extension: dict[str, Any]) -> str:
+        """Build a concise extension summary.
+
+        :param extension: Extension data.
+        :type extension: dict[str, Any]
+        :return: Extension summary.
+        :rtype: str
+        """
+
+        label = f"{extension.get('name')} ({extension.get('oid')})"
+        critical = "critical" if extension.get("critical") else "non-critical"
+        value = extension.get("value")
+        if isinstance(value, dict):
+            tn_auth_list = value.get("tn_auth_list")
+            if isinstance(tn_auth_list, dict) and tn_auth_list.get("spc"):
+                return f"{label}, {critical}, spc={tn_auth_list.get('spc')}"
+            digest = value.get("digest") or value.get("key_identifier")
+            if digest is not None:
+                return f"{label}, {critical}, {digest}"
+            return f"{label}, {critical}, {self.compact_mapping(value)}"
+        if isinstance(value, list):
+            summary = self.extension_list_value_summary(value)
+            if summary:
+                return f"{label}, {critical}, {summary}"
+            return f"{label}, {critical}, {len(value)} value(s)"
+        return f"{label}, {critical}"
+
+    def extension_list_value_summary(self, value: list[Any]) -> str:
+        """Return a compact summary for list-valued extensions.
+
+        :param value: Extension value list.
+        :type value: list[Any]
+        :return: Compact value summary.
+        :rtype: str
+        """
+
+        policy_oids = self.extension_policy_oids(value)
+        if policy_oids:
+            return f"policies={', '.join(policy_oids)}"
+        crl_urls = self.extension_crl_urls(value)
+        if crl_urls:
+            return f"uris={', '.join(crl_urls)}"
+        return ""
+
+    def extension_policy_oids(self, value: list[Any]) -> list[str]:
+        """Return policy OID values from a parsed extension list.
+
+        :param value: Extension value list.
+        :type value: list[Any]
+        :return: Policy OID values.
+        :rtype: list[str]
+        """
+
+        policy_oids = []
+        for policy in value:
+            if not isinstance(policy, dict):
+                continue
+            identifier = policy.get("policy_identifier")
+            if isinstance(identifier, dict) and identifier.get("oid") is not None:
+                policy_oids.append(str(identifier["oid"]))
+        return policy_oids
+
+    def extension_crl_urls(self, value: list[Any]) -> list[str]:
+        """Return CRL URL values from a parsed extension list.
+
+        :param value: Extension value list.
+        :type value: list[Any]
+        :return: CRL URL values.
+        :rtype: list[str]
+        """
+
+        urls = []
+        for point in value:
+            if not isinstance(point, dict):
+                continue
+            for name in point.get("full_name", []):
+                if isinstance(name, dict) and name.get("value") is not None:
+                    urls.append(str(name["value"]))
+        return urls
+
+    def compact_mapping(self, mapping: dict[str, Any]) -> str:
+        """Return a compact display string for a mapping.
+
+        :param mapping: Mapping to display.
+        :type mapping: dict[str, Any]
+        :return: Compact display string.
+        :rtype: str
+        """
+
+        return ", ".join(
+            f"{key}={value}" for key, value in mapping.items() if value is not None
+        )
 
     def short_text(self, value: str, maximum_length: int) -> str:
         """Return a compact display value."""

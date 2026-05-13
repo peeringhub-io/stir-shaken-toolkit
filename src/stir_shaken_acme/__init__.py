@@ -12,6 +12,7 @@ from .certificates import (
 )
 from .errors import StipaRemoteDisconnectedError
 from .fingerprints import FingerprintCalculator
+from .inspection import CertificateInspection, CertificateInspector, CsrInspection
 from .issuer import (
     IssuanceValidationError,
     StirShakenIssuanceResult,
@@ -29,6 +30,9 @@ from .tnauth import TnAuthList
 
 __all__ = [
     "CertificateDetails",
+    "CertificateInspection",
+    "CertificateInspector",
+    "CsrInspection",
     "FingerprintCalculator",
     "IssuanceValidationError",
     "SHAKEN_POLICY_OID_ARC",

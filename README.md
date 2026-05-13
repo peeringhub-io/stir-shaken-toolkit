@@ -79,6 +79,8 @@ Local CSR and fingerprint utilities:
 
 ```bash
 stir-shaken-toolkit csr --spc 818H
+stir-shaken-toolkit inspect --csr shaken.csr
+stir-shaken-toolkit inspect --certificate leaf.pem --json
 stir-shaken-toolkit fingerprint --csr shaken.csr
 stir-shaken-toolkit validate-key-pair --key account.key --certificate leaf.pem
 stir-shaken-toolkit validate-key-pair --key shaken.key --csr shaken.csr

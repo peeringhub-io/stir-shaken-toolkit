@@ -45,3 +45,11 @@ Do not publish or expose `account.key`.
 If Peeringhub issues a certificate but local validation fails, the CLI still
 writes the downloaded certificate artifacts and `issuance.json`. This makes the
 certificate inspectable without repeating the issuance attempt.
+
+Inspect retained artifacts locally:
+
+```bash
+stir-shaken-toolkit inspect --csr csr.pem
+stir-shaken-toolkit inspect --certificate leaf.pem
+stir-shaken-toolkit inspect --certificate certificate-chain.pem --json
+```
