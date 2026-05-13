@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stir-shaken-toolkit"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Reusable ACME and STIR/SHAKEN certificate issuance toolkit"
 requires-python = ">=3.10"
 dependencies = [
@@ -28,3 +28,6 @@ stir-shaken-toolkit = "stir_shaken_toolkit.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "stir_shaken_toolkit.version.__version__"}

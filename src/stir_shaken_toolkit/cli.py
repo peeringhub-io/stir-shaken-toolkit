@@ -37,6 +37,7 @@ from stir_shaken_toolkit.providers.peeringhub import (
     PeeringhubIssuer,
     PeeringhubProfile,
 )
+from stir_shaken_toolkit.version import __version__
 
 SUCCESS_EXIT_CODE = 0
 FAILURE_EXIT_CODE = 1
@@ -679,6 +680,12 @@ class StirShakenToolkitCli:
             "--debug",
             action="store_true",
             help="Enable debug logging with secrets redacted",
+        )
+        parser.add_argument(
+            "-v",
+            "--version",
+            action="version",
+            version=f"stir-shaken-toolkit {__version__}",
         )
         self.add_file_argument(
             parser,
