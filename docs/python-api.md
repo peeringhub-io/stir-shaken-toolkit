@@ -8,10 +8,10 @@ integration.
 - `acme_core`: provider-neutral RFC 8555 ACME primitives.
 - `stir_shaken_acme`: TNAuthList, STI-PA tokens, fingerprints, CSRs,
   certificate issuance, and certificate validation.
-- `stir_shaken_toolkit.providers.peeringhub`: Peeringhub profile defaults and a
+- `stir_shaken_toolkit.providers.peeringhub`: PeeringHub profile defaults and a
   convenience issuer.
 
-## Peeringhub Example
+## PeeringHub Example
 
 ```python
 from pathlib import Path

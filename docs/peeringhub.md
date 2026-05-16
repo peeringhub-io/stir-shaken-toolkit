@@ -1,7 +1,7 @@
-# Peeringhub Issuance
+# PeeringHub Issuance
 
-The Peeringhub commands wrap the STIR/SHAKEN ACME workflow for operators who
-already have STI-PA credentials and Peeringhub ACME access.
+The PeeringHub commands wrap the STIR/SHAKEN ACME workflow for operators who
+already have STI-PA credentials and PeeringHub ACME access.
 
 ## Account Setup
 
@@ -11,23 +11,23 @@ Run account setup before issuing certificates:
 stir-shaken-toolkit peeringhub-account-setup
 ```
 
-The command prepares or verifies the local Peeringhub ACME account directory.
-It contacts Peeringhub ACME but does not create a certificate order.
+The command prepares or verifies the local PeeringHub ACME account directory.
+It contacts PeeringHub ACME but does not create a certificate order.
 
 The directory contains:
 
 - `account.key`: the durable EC P-256 private key used to authenticate ACME
   requests.
 - `account.json`: a recoverable cache of the account URL returned by
-  Peeringhub.
+  PeeringHub.
 
-If Peeringhub gives you a key identifier, pass it with `--kid` or configure
-`acme_kid` / `ACME_KID`. Peeringhub does not provide the local private key; the
+If PeeringHub gives you a key identifier, pass it with `--kid` or configure
+`acme_kid` / `ACME_KID`. PeeringHub does not provide the local private key; the
 toolkit creates or reads it locally.
 
 ## Key Model
 
-Peeringhub issuance uses the same `account.key` for:
+PeeringHub issuance uses the same `account.key` for:
 
 - ACME JWS signing.
 - The STI-PA SPC token fingerprint.
@@ -48,17 +48,17 @@ The command:
 1. Prepares or verifies the ACME account.
 2. Builds the TNAuthList value from the configured SPC.
 3. Requests and validates an STI-PA SPC token.
-4. Creates a Peeringhub ACME order.
+4. Creates a PeeringHub ACME order.
 5. Submits the `tkauth-01` challenge.
 6. Builds a CSR from the local ACME account key.
 7. Downloads and validates the issued certificate chain.
 
 If no `shaken_subject_common_name`, `SHAKEN_SUBJECT_COMMON_NAME`, or
 `--common-name` is provided, `peeringhub-issue` uses
-`SHAKEN <SPC> <timestamp>`. This avoids Peeringhub's duplicate-subject
+`SHAKEN <SPC> <timestamp>`. This avoids PeeringHub's duplicate-subject
 restriction during repeated CLI issuance.
 
-`peeringhub-issue` omits CRL Distribution Points from the CSR so Peeringhub can
+`peeringhub-issue` omits CRL Distribution Points from the CSR so PeeringHub can
 add the official PA CRL extension during issuance.
 
 ## Output Directory
@@ -85,11 +85,11 @@ stir-shaken-toolkit --debug peeringhub-issue
 
 Common failures:
 
-- Missing `account.key`: the toolkit cannot authenticate as the Peeringhub ACME
+- Missing `account.key`: the toolkit cannot authenticate as the PeeringHub ACME
   account.
-- Duplicate subject: Peeringhub already has a valid certificate with the same
+- Duplicate subject: PeeringHub already has a valid certificate with the same
   subject name.
-- Invalid CSR: Peeringhub rejected the CSR after ACME challenge validation.
+- Invalid CSR: PeeringHub rejected the CSR after ACME challenge validation.
 - Local validation failure: the certificate was downloaded but did not pass
   toolkit validation.
 

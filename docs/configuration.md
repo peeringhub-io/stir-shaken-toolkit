@@ -30,12 +30,12 @@ shown below.
 | `stipa_user_id` | `STIPA_USER_ID` | STI-PA API user ID. | `spc-token`, `ca-list`, `peeringhub-issue` |
 | `stipa_password` | `STIPA_PASSWORD` | STI-PA API password. | `spc-token`, `ca-list`, `peeringhub-issue` |
 | `stipa_sp_id` | `STIPA_SP_ID` | STI-PA STI Participant ID. | `spc-token`, `peeringhub-issue` |
-| `stipa_environment` | `STIPA_ENVIRONMENT` | STI-PA environment: `staging` or `production`. | `spc-token`, `ca-list`, Peeringhub fallback |
+| `stipa_environment` | `STIPA_ENVIRONMENT` | STI-PA environment: `staging` or `production`. | `spc-token`, `ca-list`, PeeringHub fallback |
 | `stipa_atc_fingerprint` | `STIPA_ATC_FINGERPRINT` | Account/public-key fingerprint for standalone SPC token requests. | `spc-token` |
 | `stipa_output_dir` | `STIPA_OUTPUT_DIR` | Directory for standalone SPC token summary artifacts. | `spc-token` |
-| `acme_account_dir` | `ACME_ACCOUNT_DIR` | Local Peeringhub account directory containing `account.key` and `account.json`. | `fingerprint`, Peeringhub commands |
-| `acme_kid` | `ACME_KID` | Peeringhub ACME key identifier / JWK `kid`. | Peeringhub commands |
-| `peeringhub_environment` | `PEERINGHUB_ENVIRONMENT` | Peeringhub environment: `staging` or `production`. | Peeringhub commands |
+| `acme_account_dir` | `ACME_ACCOUNT_DIR` | Local PeeringHub account directory containing `account.key` and `account.json`. | `fingerprint`, PeeringHub commands |
+| `acme_kid` | `ACME_KID` | PeeringHub ACME key identifier / JWK `kid`. | PeeringHub commands |
+| `peeringhub_environment` | `PEERINGHUB_ENVIRONMENT` | PeeringHub environment: `staging` or `production`. | PeeringHub commands |
 | `shaken_subject_country` | `SHAKEN_SUBJECT_COUNTRY` | X.509 subject country; defaults to `US`. | `peeringhub-issue`, `csr` |
 | `shaken_subject_state` | `SHAKEN_SUBJECT_STATE` | X.509 subject state or province. | `peeringhub-issue`, `csr` |
 | `shaken_subject_locality` | `SHAKEN_SUBJECT_LOCALITY` | X.509 subject city or locality. | `peeringhub-issue`, `csr` |
@@ -45,7 +45,7 @@ shown below.
 | `shaken_private_key_path` | `SHAKEN_PRIVATE_KEY_PATH` | Private key to match against a certificate or CSR. | `validate-key-pair` |
 | `shaken_certificate_path` | `SHAKEN_CERTIFICATE_PATH` | Certificate to validate against the private key. | `validate-key-pair` |
 | `shaken_csr_path` | `SHAKEN_CSR_PATH` | CSR to validate against the private key. | `validate-key-pair` |
-| `shaken_output_dir` | `SHAKEN_OUTPUT_DIR` | New directory for Peeringhub issuance artifacts. | `peeringhub-issue` |
+| `shaken_output_dir` | `SHAKEN_OUTPUT_DIR` | New directory for PeeringHub issuance artifacts. | `peeringhub-issue` |
 | `shaken_key_out` | `SHAKEN_KEY_OUT` | Generated CSR private key output; defaults to `shaken.key`. | `csr` |
 | `shaken_csr_pem_out` | `SHAKEN_CSR_PEM_OUT` | Generated PEM CSR output; defaults to `shaken.csr`. | `csr` |
 | `shaken_csr_der_out` | `SHAKEN_CSR_DER_OUT` | Optional generated DER CSR output. | `csr` |
@@ -54,7 +54,7 @@ shown below.
 
 ## Environment Selection
 
-`peeringhub_environment` has priority for Peeringhub commands. If it is unset,
+`peeringhub_environment` has priority for PeeringHub commands. If it is unset,
 those commands also accept `stipa_environment` as a fallback. Both values must
 be `staging` or `production`; `production` is the built-in default when a
 command allows a default.
@@ -64,7 +64,7 @@ selects the staging STI-PA URL from the command line.
 
 ## Account Directory Defaults
 
-Peeringhub ACME commands use one local account directory. If
+PeeringHub ACME commands use one local account directory. If
 `acme_account_dir` is unset, the toolkit uses a per-user platform default:
 
 - Linux: `$XDG_STATE_HOME/stir-shaken-toolkit/peeringhub/<environment>` or
@@ -76,14 +76,14 @@ The directory contains:
 
 - `account.key`: the durable local EC P-256 ACME account private key.
 - `account.json`: a recoverable cache of the ACME account URL returned by
-  Peeringhub.
+  PeeringHub.
 
 If `account.json` is removed, the toolkit recreates it by authorizing with
-Peeringhub using the existing key. If `account.json` exists but `account.key` is
+PeeringHub using the existing key. If `account.json` exists but `account.key` is
 missing, the toolkit fails because it cannot sign requests for the cached
 account.
 
-Peeringhub may provide or confirm the `acme_kid` value, but Peeringhub does not
+PeeringHub may provide or confirm the `acme_kid` value, but PeeringHub does not
 provide either local file.
 
 ## CLI and Python Boundaries
