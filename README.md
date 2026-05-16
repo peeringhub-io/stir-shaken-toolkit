@@ -11,24 +11,22 @@ The package is split into three layers:
 - `acme_core`: provider-neutral RFC 8555 ACME primitives.
 - `stir_shaken_acme`: STIR/SHAKEN-specific TNAuthList, STI-PA, CSR,
   fingerprint, issuance, and inspection/validation helpers.
-- `stir_shaken_toolkit.providers.peeringhub`: Peeringhub profile defaults and
+- `stir_shaken_toolkit.providers.peeringhub`: PeeringHub profile defaults and
   issuance convenience APIs.
 
 ## Install
 
-From the repository root:
-
 ```bash
-python -m pip install -e .
+pip install stir-shaken-toolkit
 ```
 
 ## Quick Start
 
-Most operators using Peeringhub need four groups of values:
+Most operators using PeeringHub need four groups of values:
 
 - STI-PA credentials: `STIPA_USER_ID`, `STIPA_PASSWORD`, and `STIPA_SP_ID`.
 - The service provider code: `STIPA_SPC`.
-- The Peeringhub ACME key identifier, when Peeringhub provides one:
+- The PeeringHub ACME key identifier, when PeeringHub provides one:
   `ACME_KID`.
 - X.509 subject details such as organization, state, locality, and country.
 
@@ -47,7 +45,7 @@ export SHAKEN_SUBJECT_STATE=TX
 export SHAKEN_SUBJECT_LOCALITY=Irving
 ```
 
-Prepare or verify the Peeringhub ACME account:
+Prepare or verify the PeeringHub ACME account:
 
 ```bash
 stir-shaken-toolkit peeringhub-account-setup
@@ -62,12 +60,12 @@ stir-shaken-toolkit peeringhub-issue
 By default, issuance writes artifacts to a new timestamped directory such as
 `./shaken-cert-20260508T162900Z`.
 
-`peeringhub-account-setup` and `peeringhub-issue` contact Peeringhub ACME.
+`peeringhub-account-setup` and `peeringhub-issue` contact PeeringHub ACME.
 `peeringhub-issue` also contacts STI-PA.
 
 ## Common Commands
 
-Peeringhub issuance:
+PeeringHub issuance:
 
 ```bash
 stir-shaken-toolkit peeringhub-account-setup
@@ -126,19 +124,19 @@ environment variable reference.
 
 ## Important Files
 
-Peeringhub ACME commands use a local account directory. If you do not configure
+PeeringHub ACME commands use a local account directory. If you do not configure
 one, the toolkit chooses a per-user platform default.
 
 The durable credential is `account.key`. Protect it like any other private key.
-Peeringhub issuance uses this key for ACME account authentication, the STI-PA
+PeeringHub issuance uses this key for ACME account authentication, the STI-PA
 SPC token fingerprint, the CSR public key, and the final certificate/private-key
 pair.
 
-The `account.json` file is a recoverable cache of the Peeringhub ACME account
+The `account.json` file is a recoverable cache of the PeeringHub ACME account
 URL. If it is removed, the toolkit can recreate it by signing with the existing
 `account.key`.
 
-Peeringhub issuance writes certificate artifacts but does not write a private
+PeeringHub issuance writes certificate artifacts but does not write a private
 key into the issuance output directory. The issued certificate belongs with the
 ACME account key.
 
@@ -148,7 +146,7 @@ For installation and publication details, see [Artifacts and Installation](docs/
 
 - [Configuration](docs/configuration.md): config keys, environment variables,
   defaults, and examples.
-- [Peeringhub Issuance](docs/peeringhub.md): account setup, issuance behavior,
+- [PeeringHub Issuance](docs/peeringhub.md): account setup, issuance behavior,
   and common failure diagnostics.
 - [Artifacts and Installation](docs/artifacts.md): output files and which
   certificate file to publish for STIR/SHAKEN use.
