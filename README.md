@@ -2,9 +2,8 @@
 
 Reusable Python tooling for STIR/SHAKEN certificate work:
 
-- Local utilities for CSRs, fingerprints, certificate validation, and STI-PA
-  SPC tokens.
-- A Peeringhub ACME workflow for issuing STIR/SHAKEN certificates.
+- Local utilities for CSRs, fingerprints, certificate inspection/validation, and STI-PA SPC tokens.
+- A [PeeringHub](https://www.peeringhub.io) ACME workflow for issuing STIR/SHAKEN certificates.
 - Python modules that can be reused by higher-level automation.
 
 The package is split into three layers:
