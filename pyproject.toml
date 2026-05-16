@@ -16,6 +16,11 @@ dependencies = [
   "requests>=2.31",
 ]
 
+[project.urls]
+Homepage = "https://github.com/peeringhub-io/stir-shaken-toolkit"
+Repository = "https://github.com/peeringhub-io/stir-shaken-toolkit"
+Issues = "https://github.com/peeringhub-io/stir-shaken-toolkit/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
