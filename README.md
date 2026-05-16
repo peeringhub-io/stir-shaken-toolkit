@@ -10,7 +10,7 @@ The package is split into three layers:
 
 - `acme_core`: provider-neutral RFC 8555 ACME primitives.
 - `stir_shaken_acme`: STIR/SHAKEN-specific TNAuthList, STI-PA, CSR,
-  fingerprint, issuance, and validation helpers.
+  fingerprint, issuance, and inspection/validation helpers.
 - `stir_shaken_toolkit.providers.peeringhub`: Peeringhub profile defaults and
   issuance convenience APIs.
 
